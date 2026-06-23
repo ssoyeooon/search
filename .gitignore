@@ -1,0 +1,10 @@
+# 원본 검색 데이터(민감) — 저장소에 올리지 않음
+*.xlsx
+질의어.xlsx
+
+# 브라우저 "다른 이름으로 저장" 스냅샷 폴더
+intent-dashboard_files/
+
+# OS/에디터 부산물
+.DS_Store
+Thumbs.db
