@@ -701,10 +701,20 @@ fileInput.addEventListener("change", ev => { if(ev.target.files.length) handleFi
 
 function pad(n){ return n<10 ? "0"+n : ""+n; }
 function fmtDate(v){
-  // SheetJS(cellDates)는 셀의 '표시값(현지 벽시계)'을 UTC 필드에 담아 Date를 만든다.
-  // 따라서 현지(getDate 등)로 읽으면 시간대(+9h)만큼 날짜가 밀린다 → 반드시 UTC 필드로 읽어야 원래 날짜가 나온다.
   if(v instanceof Date && !isNaN(v)) return v.getUTCFullYear()+"-"+pad(v.getUTCMonth()+1)+"-"+pad(v.getUTCDate());
   return "";
+}
+// 엑셀 셀 값에서 '셀에 적힌 그대로의 날짜'를 시간대 영향 없이 추출.
+// - 숫자(엑셀 날짜 일련번호): SheetJS SSF로 변환 (date-only/​datetime 모두, ±1일 밀림 없음)
+// - Date 객체: UTC 필드로 읽기  · 문자열: CSV와 동일 규칙으로 파싱
+function xlsxDate(v){
+  if(v === null || v === undefined || v === "") return "";
+  if(typeof v === "number"){
+    var o = XLSX.SSF.parse_date_code(v);
+    return (o && o.y) ? o.y + "-" + pad(o.m) + "-" + pad(o.d) : "";
+  }
+  if(v instanceof Date && !isNaN(v)) return v.getUTCFullYear()+"-"+pad(v.getUTCMonth()+1)+"-"+pad(v.getUTCDate());
+  return parseCsvDate(String(v));
 }
 
 // 질의어/날짜 컬럼 자동 인식 (classify_log.py 와 동일 후보)
@@ -746,7 +756,8 @@ function handleXlsxFile(file){
   const reader = new FileReader();
   reader.onload = e => {
     try{
-      const wb = XLSX.read(new Uint8Array(e.target.result), {type:"array", cellDates:true, codepage:65001});
+      // cellDates를 쓰지 않고 원본 일련번호(숫자)를 받아 시간대 영향 없이 날짜를 추출한다.
+      const wb = XLSX.read(new Uint8Array(e.target.result), {type:"array", codepage:65001});
       const records = [];
       wb.SheetNames.forEach(sn => {
         const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], {defval:null});
@@ -757,7 +768,7 @@ function handleXlsxFile(file){
         rows.forEach(r => {
           const q = r[qcol];
           if(q===null || q===undefined || String(q).trim()==="") return;  // dropna(질의어)
-          records.push({q:String(q), date:dcol ? fmtDate(r[dcol]) : ""});
+          records.push({q:String(q), date:dcol ? xlsxDate(r[dcol]) : ""});
         });
       });
       classifyAll(records);
