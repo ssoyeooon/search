@@ -386,7 +386,7 @@
         </div>
       </div>
       <div class="card" style="margin-bottom:16px">
-        <p class="sectitle">대분류별 검색량 조회</p>
+        <p class="sectitle">일자별 검색량 추이</p>
         <div id="dTrendBox" style="height:340px" class="hidden"><canvas id="dTrendMain" data-comment-anchor="922ed8fbfc-canvas" width="1230" height="340" style="display: block; box-sizing: border-box; height: 340px; width: 1230px;"></canvas></div>
         <div id="dTrendEmpty" class="chart-empty">검색어 데이터가 업로드되지 않았습니다.<br>검색어 의도 분류 메뉴에서 데이터를 업로드해주세요.</div>
       </div>
@@ -1296,31 +1296,36 @@ function renderDashboard(){
   SELECTED_WEEK = key;
   syncDatePill(store.weeks[key]);
 
-  // 월별 조회: 가능한 월 범위 세팅 + 선택 월의 주차만 추이 차트에 표시
-  const months = [...new Set(weeks.map(w=> w.start.slice(0,7)))].sort();
+  // 월별 조회: 가능한 월 범위는 '실제 데이터 날짜(days)' 기준으로 산출 (주 시작월이 아니라 일자 기준)
+  let months = [...new Set(weeks.flatMap(w=> Object.keys(w.days||{})).map(d=> d.slice(0,7)))].sort();
+  if(!months.length) months = [...new Set(weeks.map(w=> w.start.slice(0,7)))].sort();  // days 없는 과거 데이터 호환
   if(typeof KMON!=="undefined") KMON.months = months;
   if(!SELECTED_MONTH || !months.includes(SELECTED_MONTH)) SELECTED_MONTH = months[months.length-1];
   { const mt=$("dMonthText"); if(mt&&SELECTED_MONTH){ const p=SELECTED_MONTH.split("-"); mt.textContent=p[0]+"."+p[1]; } }
-  const trendWeeks = weeks.filter(w=> w.start.slice(0,7) === SELECTED_MONTH);
-  renderTrendCharts(trendWeeks.length ? trendWeeks : weeks, mainOrder);
+  renderTrendCharts(weeks, SELECTED_MONTH);
   renderWeekDetail(key, store);
 }
 
 function syncDatePill(w){var t=$("dDateText");if(t){var sp=w.start.split("-");t.textContent=sp[0]+"."+sp[1]+"."+sp[2];}var rg=$("dDateRange");if(rg){var ep=w.end.split("-");rg.textContent="~ "+ep[1]+"."+ep[2]+" (7일)";}if(typeof KCAL!=="undefined")KCAL.syncToWeek(w);}
 function weekLabel(w){var sp=w.start.split("-"),ep=w.end.split("-"),wom=Math.floor((+sp[2]-1)/7)+1;return sp[0]+"."+sp[1]+" "+wom+"주차 ("+sp[1]+"."+sp[2]+"~"+ep[1]+"."+ep[2]+")";}
 function weekShort(w){var sp=w.start.split("-"),ep=w.end.split("-");return sp[1]+"."+sp[2]+"~"+ep[1]+"."+ep[2];}
-function renderTrendCharts(weeks, mainOrder){
+// 월별 조회: 선택한 월의 '일자별' 검색량 추이 (주차 store의 days[date] 합산)
+function renderTrendCharts(allWeeks, month){
   if(dCharts.tMain) dCharts.tMain.destroy();
-  const labels = weeks.map(weekShort);
+  const daily = {};
+  allWeeks.forEach(w => { for(const d in (w.days||{})){ if(!month || d.slice(0,7) === month) daily[d] = (daily[d]||0) + w.days[d]; } });
+  const dates = Object.keys(daily).sort();
+  const labels = dates.map(d => { const p = d.split("-"); return p[1]+"."+p[2]; });
   dCharts.tMain = new Chart($("dTrendMain"), {
     type:"line",
-    data:{labels, datasets: mainOrder.map(m=>({
-      label:m, data:weeks.map(w=> w.main[m]||0),
-      borderColor:D_MAIN_COLORS[m], backgroundColor:D_MAIN_COLORS[m],
-      tension:.35, pointRadius:2, pointHoverRadius:4, borderWidth:2, fill:false
-    }))},
+    data:{labels, datasets:[{
+      label:"검색량", data:dates.map(d=>daily[d]),
+      borderColor:"#3182f6", backgroundColor:"rgba(49,130,246,.12)",
+      tension:.3, pointRadius:2, pointHoverRadius:4, borderWidth:2, fill:true
+    }]},
     options:{maintainAspectRatio:false, interaction:{mode:"index",intersect:false},
-      plugins:{legend:{position:"top",align:"end",labels:{color:"#333d4b",boxWidth:12,boxHeight:12,usePointStyle:false,padding:16}}},
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{title:(it)=>{ const i=it[0].dataIndex; return dates[i]; }, label:(it)=> it.parsed.y.toLocaleString()+"건"}}},
       scales:{x:{ticks:{color:"#8b95a1",maxTicksLimit:16},grid:{display:false}},
               y:{beginAtZero:true,ticks:{color:"#8b95a1"},grid:{color:"#eef1f4"}}}}
   });
