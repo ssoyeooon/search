@@ -340,7 +340,7 @@
         <select id="fSub"><option value="">전체 세부의도</option></select>
         <span class="muted" id="filterCount"></span>
       </div>
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px">
+      <div id="exportBtns" style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:10px">
         <button class="btn ghost" id="btnCsv" disabled="">CSV 내보내기</button>
         <button class="btn ghost" id="btnXlsx" disabled="">XLSX 내보내기</button>
       </div>
@@ -1231,7 +1231,7 @@ function showView(name){
   }
   const cur = VIEWS[name];
   $("menuTitle").textContent = cur.title;
-  $("exportBtns").style.display = cur.exp ? "" : "none";
+  { const eb = $("exportBtns"); if(eb) eb.style.display = cur.exp ? "" : "none"; }
   if(name === "dashboard") renderDashboard();
 }
 
