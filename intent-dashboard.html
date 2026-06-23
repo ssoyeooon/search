@@ -218,8 +218,10 @@
   #viewAutocomplete td .v,#viewAutocomplete .v{color:var(--muted);font-size:12.5px}
   #viewAutocomplete .res-table{margin-top:16px;border:1px solid var(--line);border-radius:14px;overflow:hidden}
   #viewAutocomplete .res-table table{font-size:13px}
-  /* 엔티티 사전 테이블: 텍스트·타입 등 모든 열 가운데 정렬 */
-  #dtable thead th, #dtable tbody td{text-align:center;vertical-align:middle}
+  /* 엔티티 사전·엔티티 추출 결과 테이블: 텍스트·타입 등 모든 열 가운데 정렬 */
+  #dtable thead th, #dtable tbody td,
+  #res-table thead th, #res-table tbody td,
+  #batch-result table th, #batch-result table td{text-align:center;vertical-align:middle}
   #viewAutocomplete .filterbar{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 10px}
   #viewAutocomplete .filterbar button{border:1px solid var(--line);background:var(--panel);border-radius:99px;
     padding:6px 13px;font-size:12.5px;font-family:inherit;cursor:pointer;font-weight:600;color:var(--txt2);transition:.12s}
