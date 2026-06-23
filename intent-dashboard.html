@@ -482,7 +482,10 @@
       <div class="card" style="margin-bottom:16px">
         <h2>자동 완성 후보 재생성</h2>
         <div class="lbl">질의어 로그 업로드 ※ 파일 형식: xlsx, xls, csv</div>
-        <input type="file" id="acFile" accept=".xlsx,.xls,.csv">
+        <div class="file-field">
+          <input type="file" id="acFile" accept=".xlsx,.xls,.csv">
+          <button type="button" id="acFileClear" class="file-clear" title="파일 선택 취소" style="display:none" aria-label="파일 선택 취소">✕</button>
+        </div>
         <div id="acOpts" style="display:none;margin-top:14px">
           <div class="row-end">
             <div><div class="lbl">시트</div><select id="acSheet"></select></div>
@@ -894,9 +897,6 @@ function finish(){
     if(res && res.dup){
       $("progTxt").classList.remove("hidden");
       $("progTxt").textContent = "이미 누적된 파일입니다 · 이중 집계를 막기 위해 대시보드 저장을 건너뛰었습니다.";
-    } else if(res && res.n > 0){
-      $("progTxt").classList.remove("hidden");
-      $("progTxt").textContent = `완료 · ${res.n}개 주차가 대시보드에 누적되었습니다.`;
     } else {
       $("progTxt").classList.add("hidden");
     }
@@ -1538,6 +1538,11 @@ fetchBaseStore().then(() => { if(!$("viewDashboard").classList.contains("hidden"
   if(fileUp&&clrUp){
     fileUp.addEventListener('change', function(e){ clrUp.style.display=(e.target.files&&e.target.files.length)?'flex':'none'; });
     clrUp.addEventListener('click', function(){ fileUp.value=''; clrUp.style.display='none'; });
+  }
+  var acf=document.getElementById('acFile'), acclr=document.getElementById('acFileClear');
+  if(acf&&acclr){
+    acf.addEventListener('change', function(e){ acclr.style.display=(e.target.files&&e.target.files.length)?'flex':'none'; });
+    acclr.addEventListener('click', function(){ acf.value=''; var o=document.getElementById('acOpts'); if(o)o.style.display='none'; acclr.style.display='none'; });
   }
 })();
 </script>
