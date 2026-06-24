@@ -32,6 +32,8 @@ function extract(query){
   for(const h of hits){ const key=h.type+'|'+h.canonical; if(!seen.has(key)){seen.add(key); uniq.push(h);} }
   return uniq;   // 질의어 등장(위치) 순서 유지
 }
+// 업로드 데이터/사용자 입력을 innerHTML에 넣기 전 이스케이프 (저장형 XSS 방지)
+function escHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 const badge = t => `<span class="badge" style="background:${colors[t]};color:${tcol(t)}">${t}</span>`;
 
 function renderTest(){
@@ -43,7 +45,7 @@ function renderTest(){
   const hits=extract(q);
   if(!hits.length){ sum.innerHTML='매칭된 엔티티 <b>없음</b> — 미매칭 질의어입니다.'; wrap.style.display='none'; return; }
   sum.innerHTML=`엔티티 <b>${hits.length}</b>개 추출 · `+hits.map(h=>badge(h.type)).join(' ');
-  tb.innerHTML=hits.map(h=>`<tr><td><b>${h.surface}</b></td><td>${badge(h.type)}</td><td>${h.canonical}</td><td class="v">${h.kind}</td></tr>`).join('');
+  tb.innerHTML=hits.map(h=>`<tr><td><b>${escHtml(h.surface)}</b></td><td>${badge(h.type)}</td><td>${escHtml(h.canonical)}</td><td class="v">${escHtml(h.kind)}</td></tr>`).join('');
   wrap.style.display='';
 }
 document.getElementById('q').addEventListener('input', renderTest);
@@ -72,7 +74,7 @@ function renderDict(){
   const tb=document.querySelector('#dtable tbody');
   if(!rows.length){ tb.innerHTML='<tr><td colspan="4" class="empty">검색 결과가 없습니다.</td></tr>'; return; }
   tb.innerHTML=rows.slice(0,1000).map(e=>
-    `<tr><td><b>${e.canonical}</b></td><td class="v">${e.variants.join(', ')||'—'}</td><td>${badge(e.type)}</td><td>${clarityCell(e.clarity)}</td></tr>`).join('')
+    `<tr><td><b>${escHtml(e.canonical)}</b></td><td class="v">${escHtml(e.variants.join(', '))||'—'}</td><td>${badge(e.type)}</td><td>${clarityCell(e.clarity)}</td></tr>`).join('')
     +(rows.length>1000?`<tr><td colspan="4" class="muted" style="text-align:center">… 외 ${rows.length-1000}개 (검색으로 좁혀보세요)</td></tr>`:'');
 }
 document.getElementById('dsearch').addEventListener('input', renderDict);
@@ -126,7 +128,7 @@ function fillCols(){
   const aoa=aoaOf(sel);
   const header=(aoa[0]||[]).map((h,i)=> (String(h).trim()|| ('열'+(i+1))) );
   const guess=header.findIndex(h=>/query|질의|검색어|키워드/i.test(h));
-  $('colSel').innerHTML=header.map((h,i)=>`<option value="${i}">${h}</option>`).join('');
+  $('colSel').innerHTML=header.map((h,i)=>`<option value="${i}">${escHtml(h)}</option>`).join('');
   $('colSel').value= guess>=0?guess:0;
 }
 $('file').addEventListener('change', ev=>{
@@ -138,9 +140,9 @@ $('file').addEventListener('change', ev=>{
     try{
       WB=XLSX.read(new Uint8Array(e.target.result), {type:'array', codepage:65001});
       const allOpt = WB.SheetNames.length>1 ? '<option>(전체 시트)</option>' : '';
-      $('sheetSel').innerHTML=allOpt+WB.SheetNames.map(s=>`<option>${s}</option>`).join('');
+      $('sheetSel').innerHTML=allOpt+WB.SheetNames.map(s=>`<option>${escHtml(s)}</option>`).join('');
       fillCols(); $('file-opts').style.display=''; $('file-status').innerHTML='';
-    }catch(err){ $('file-status').innerHTML='<span class="muted">파일을 읽을 수 없습니다: '+err.message+'</span>'; }
+    }catch(err){ $('file-status').innerHTML='<span class="muted">파일을 읽을 수 없습니다: '+escHtml(err.message)+'</span>'; }
   }, 20); };
   rd.readAsArrayBuffer(f);
 });
@@ -185,7 +187,7 @@ $('runBatch') && ($('runBatch').onclick=()=>{
     (bars?`<div class="muted" style="margin:4px 0 8px">타입 분포 (질의어 수, 이 업로드 데이터 기준)</div>${bars}`:'')+
     `<div style="display:flex;justify-content:space-between;align-items:flex-end;margin:14px 0 6px"><div class="muted">미리보기 (상위 100건)</div><button class="primary" id="dl">결과 다운로드 (CSV)</button></div>`+
     `<div class="scrollbox" style="max-height:420px"><table><thead><tr><th style="width:92px;white-space:nowrap">시트명</th><th>원본질의어</th><th>타입</th><th>canonical</th></tr></thead><tbody>`+
-    out.slice(0,100).map(o=>`<tr><td class="v" style="white-space:nowrap">${o['시트명']}</td><td>${o['원본질의어']}</td><td>${o['엔티티 타입'].split('; ').filter(Boolean).map(badge).join(' ')||'<span class=v>—</span>'}</td><td class="v">${o['정규화']||'—'}</td></tr>`).join('')+
+    out.slice(0,100).map(o=>`<tr><td class="v" style="white-space:nowrap">${escHtml(o['시트명'])}</td><td>${escHtml(o['원본질의어'])}</td><td>${o['엔티티 타입'].split('; ').filter(Boolean).map(badge).join(' ')||'<span class=v>—</span>'}</td><td class="v">${escHtml(o['정규화'])||'—'}</td></tr>`).join('')+
     `</tbody></table></div>`;
   $('batch-result').innerHTML=html;
   $('dl').onclick=()=>{   // 대용량 대응: CSV (Excel에서 바로 열림). 클릭 제스처 내 동기 실행.
@@ -205,7 +207,7 @@ function renderAcTable(list){
   const ns=AC.filter(r=>r.kind==='단일').length, nc=AC.filter(r=>r.kind==='조합').length;
   $('acMeta').textContent=`(${AC.length.toLocaleString()}개 · 단일 ${ns} / 조합 ${nc})`;
   const tb=document.querySelector('#acTable tbody'); const cap=list.slice(0,1000);
-  tb.innerHTML=cap.map(r=>`<tr><td>${r.rank}</td><td><b>${r.keyword}</b></td><td>${r.kind}</td><td>${typeChip(r.type)}</td><td>${r.vol.toLocaleString()}</td></tr>`).join('')
+  tb.innerHTML=cap.map(r=>`<tr><td>${r.rank}</td><td><b>${escHtml(r.keyword)}</b></td><td>${escHtml(r.kind)}</td><td>${typeChip(r.type)}</td><td>${r.vol.toLocaleString()}</td></tr>`).join('')
     +(list.length>1000?`<tr><td colspan="5" class="muted" style="text-align:center">… 외 ${list.length-1000}개</td></tr>`:'')
     +(list.length?'':'<tr><td colspan="5" class="empty">결과 없음</td></tr>');
 }
@@ -214,7 +216,7 @@ function acSuggest(){
   const list= p? AC.filter(r=>nospace(r.keyword).startsWith(p)).sort((a,b)=>b.vol-a.vol).slice(0,5) : [];
   $('acSuggest').innerHTML= p ? (list.length
     ? '<div style="border:1px solid var(--line);border-radius:9px;overflow:hidden">'+list.map(r=>
-        `<div style="padding:9px 13px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center"><span><b>${r.keyword}</b> ${typeChip(r.type)}</span><span class="v">${r.vol.toLocaleString()}</span></div>`).join('')+'</div>'
+        `<div style="padding:9px 13px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center"><span><b>${escHtml(r.keyword)}</b> ${typeChip(r.type)}</span><span class="v">${r.vol.toLocaleString()}</span></div>`).join('')+'</div>'
     : '<span class="muted">추천 없음</span>') : '';
   renderAcTable(p? AC.filter(r=>nospace(r.keyword).includes(p)) : AC);
 }
@@ -253,16 +255,16 @@ function acFillCols(){
   const aoa=XLSX.utils.sheet_to_json(WB2.Sheets[$('acSheet').value],{header:1,defval:'',blankrows:false});
   const h=(aoa[0]||[]).map((x,i)=>String(x).trim()||('열'+(i+1)));
   const g=h.findIndex(x=>/query|질의|검색어|키워드/i.test(x));
-  $('acCol').innerHTML=h.map((x,i)=>`<option value="${i}">${x}</option>`).join(''); $('acCol').value=g>=0?g:0;
+  $('acCol').innerHTML=h.map((x,i)=>`<option value="${i}">${escHtml(x)}</option>`).join(''); $('acCol').value=g>=0?g:0;
   const gc=h.findIndex(x=>/count|검색량|빈도|건수|횟수/i.test(x));
-  $('acCntCol').innerHTML='<option value="">(없음 · 각 행 1건)</option>'+h.map((x,i)=>`<option value="${i}">${x}</option>`).join('');
+  $('acCntCol').innerHTML='<option value="">(없음 · 각 행 1건)</option>'+h.map((x,i)=>`<option value="${i}">${escHtml(x)}</option>`).join('');
   $('acCntCol').value=gc>=0?String(gc):'';
 }
 $('acFile').addEventListener('change', ev=>{
   const f=ev.target.files[0]; if(!f) return;
   const rd=new FileReader();
   rd.onload=e=>{ try{ WB2=XLSX.read(new Uint8Array(e.target.result),{type:'array', codepage:65001});
-    $('acSheet').innerHTML=WB2.SheetNames.map(s=>`<option>${s}</option>`).join(''); acFillCols(); $('acOpts').style.display=''; }
+    $('acSheet').innerHTML=WB2.SheetNames.map(s=>`<option>${escHtml(s)}</option>`).join(''); acFillCols(); $('acOpts').style.display=''; }
     catch(err){ alert('파일 오류: '+err.message); } };
   rd.readAsArrayBuffer(f);
 });
