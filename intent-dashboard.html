@@ -43,6 +43,32 @@
   .btn.ghost:hover{background:#f7f8fa}
   .btn:disabled{opacity:.4;cursor:not-allowed;background:var(--accent)}
   .btn.ghost:disabled{background:var(--panel)}
+  #btnCsv,#btnXlsx{border:1.5px solid #3182f6;color:#3182f6}
+  #btnDataReset{border:1.5px solid #3182f6;color:#3182f6}
+  .iconinfo{display:inline-flex;align-items:center;justify-content:center;width:25px;height:25px;
+    border:0;background:none;padding:0;color:#3182f6;cursor:pointer;transition:.12s}
+  .iconinfo:hover{color:var(--accent)}
+  .iconinfo svg{width:25px;height:25px}
+  .modal-overlay{position:fixed;inset:0;background:rgba(17,24,39,.45);display:flex;align-items:center;
+    justify-content:center;z-index:200;padding:20px}
+  .modal-card{position:relative;background:var(--panel);border-radius:18px;box-shadow:var(--shadow);
+    max-width:480px;width:100%;max-height:85vh;overflow:auto;padding:26px 26px 24px}
+  .modal-card h3{margin:0 36px 4px 0;font-size:18px;font-weight:800;letter-spacing:-.02em;color:var(--txt)}
+  .modal-lead{margin:0 0 18px;font-size:13px;color:var(--muted)}
+  .modal-x{position:absolute;top:16px;right:16px;width:30px;height:30px;border:0;border-radius:9px;
+    background:var(--panel2);color:var(--txt2);font-size:19px;line-height:1;cursor:pointer;transition:.12s}
+  .modal-x:hover{background:#e9edf2;color:var(--txt)}
+  .modal-sec{padding:15px 0;border-top:1px solid var(--line)}
+  .modal-sec-h{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin-bottom:9px}
+  .modal-sec-h b{font-size:15px;font-weight:700;color:var(--txt)}
+  .modal-emoji{font-size:16px}
+  .modal-tag{font-size:11.5px;font-weight:600;color:var(--accent);background:#eaf2ff;
+    padding:2px 8px;border-radius:99px}
+  .modal-steps{margin:0;padding-left:20px;font-size:13.5px;color:var(--txt2);line-height:1.75}
+  .modal-steps li{margin:2px 0}
+  .modal-steps code{background:var(--panel2);border-radius:6px;padding:1px 6px;font-size:12px;color:var(--txt)}
+  .modal-tip{margin:10px 0 0;font-size:12.5px;color:#8a5410;background:#fff8ec;border:1px solid #f8e3b8;
+    border-radius:10px;padding:10px 12px;line-height:1.6}
   .row{display:flex;gap:16px;flex-wrap:wrap}
   .card{background:var(--panel);border:0;border-radius:20px;padding:22px 24px;box-shadow:var(--shadow)}
   .grid{display:grid;gap:16px}
@@ -327,7 +353,7 @@
       </div>
       <div class="card">
         <p class="sectitle">세부의도 분포</p>
-        <div style="height:260px"><canvas id="barSub"></canvas></div>
+        <div style="height:500px"><canvas id="barSub"></canvas></div>
       </div>
     </div>
 
@@ -368,8 +394,38 @@
   <div id="viewDashboard" class="">
 
     <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:0 0 14px">
-      <button type="button" id="btnDataExport" class="btn ghost" title="누적 데이터를 dashboard-data.json 으로 내보내 GitHub에 커밋하면 모두가 공유합니다">데이터 내보내기</button>
+      <button type="button" id="btnDataInfo" class="iconinfo" title="전체 초기화·데이터 내보내기 사용법" aria-label="버튼 사용법 안내">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5"></path><path d="M12 8h.01"></path></svg>
+      </button>
       <button type="button" id="btnDataReset" class="btn ghost" title="이 브라우저에 쌓인 임시(미커밋) 데이터를 비웁니다">전체 초기화</button>
+      <button type="button" id="btnDataExport" class="btn" title="누적 데이터를 dashboard-data.json 으로 내보내 GitHub에 커밋하면 모두가 공유합니다">데이터 내보내기</button>
+    </div>
+
+    <div id="infoModal" class="modal-overlay hidden" role="presentation">
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="infoTitle">
+        <button type="button" class="modal-x" id="infoClose" aria-label="닫기">×</button>
+        <h3 id="infoTitle">버튼 사용법 안내</h3>
+        <p class="modal-lead">우측 상단 두 버튼이 어떤 일을 하는지 쉽게 정리했어요.</p>
+
+        <div class="modal-sec">
+          <div class="modal-sec-h"><span class="modal-emoji">📤</span><b>데이터 내보내기</b><span class="modal-tag">내 데이터를 모두와 공유하기</span></div>
+          <ol class="modal-steps">
+            <li><b>‘검색어 의도 분류’</b> 메뉴에서 엑셀 파일을 올리면 데이터가 자동으로 쌓여요.</li>
+            <li><b>[데이터 내보내기]</b>를 누르면 <code>dashboard-data.json</code> 파일이 다운로드돼요.</li>
+            <li>이 파일을 <b>담당자에게 전달하여 동기화 요청</b>을 해주세요. 동기화 후에는 모든 사람이 동일한 데이터를 확인할 수 있어요.</li>
+          </ol>
+          <p class="modal-tip">💡 파일이 사이트에 반영된 걸 확인한 뒤 안내창에서 <b>‘확인’</b>을 누르면, 이 컴퓨터에 임시로 쌓아둔 데이터가 깔끔하게 정리돼요.</p>
+        </div>
+
+        <div class="modal-sec">
+          <div class="modal-sec-h"><span class="modal-emoji">🗑️</span><b>전체 초기화</b><span class="modal-tag">이 컴퓨터의 임시 데이터만 비우기</span></div>
+          <ul class="modal-steps">
+            <li>지금 이 브라우저(내 컴퓨터)에만 임시로 쌓인 데이터를 지워요.</li>
+            <li>이미 공유(사이트에 반영)된 데이터는 <b>사라지지 않으니</b> 안심하세요.</li>
+            <li>잘못 올렸거나, 처음부터 다시 정리하고 싶을 때 사용해요.</li>
+          </ul>
+        </div>
+      </div>
     </div>
 
     <div class="card hidden" id="dEmpty" style="margin-bottom:16px">
@@ -386,7 +442,7 @@
         </div>
       </div>
       <div class="card" style="margin-bottom:16px">
-        <p class="sectitle">일자별 검색량 추이</p>
+        <p class="sectitle">일자별 검색량</p>
         <div id="dTrendBox" style="height:340px" class="hidden"><canvas id="dTrendMain" data-comment-anchor="922ed8fbfc-canvas" width="1230" height="340" style="display: block; box-sizing: border-box; height: 340px; width: 1230px;"></canvas></div>
         <div id="dTrendEmpty" class="chart-empty">검색어 데이터가 업로드되지 않았습니다.<br>검색어 의도 분류 메뉴에서 데이터를 업로드해주세요.</div>
       </div>
@@ -410,13 +466,13 @@
           <p class="sectitle">대분류 분포</p>
           <div id="dPieEmpty" class="chart-empty">검색어 데이터가 업로드되지 않았습니다.<br>검색어 의도 분류 메뉴에서 데이터를 업로드해주세요.</div>
           <div id="dPieBox" style="display:flex;gap:18px;align-items:center;flex-wrap:wrap" class="hidden">
-            <div class="donutwrap" style="width:200px;height:200px"><canvas id="dPieMain" width="200" height="200" style="display: block; box-sizing: border-box; height: 200px; width: 200px;"></canvas><div class="donutctr" id="ctrDMain"></div></div>
+            <div class="donutwrap" style="width:200px;height:200px"><canvas id="dPieMain"></canvas><div class="donutctr" id="ctrDMain"></div></div>
             <div id="dLegendMain" style="flex:1;min-width:160px"></div>
           </div>
         </div>
         <div class="card">
           <p class="sectitle" data-comment-anchor="1578fd7576-p">세부의도 분포</p>
-          <div id="dSubBox" style="height:260px" class="hidden"><canvas id="dBarSub" width="583" height="260" style="display: block; box-sizing: border-box; height: 260px; width: 583px;"></canvas></div>
+          <div id="dSubBox" style="height:500px" class="hidden"><canvas id="dBarSub"></canvas></div>
           <div id="dSubEmpty" class="chart-empty">검색어 데이터가 업로드되지 않았습니다.<br>검색어 의도 분류 메뉴에서 데이터를 업로드해주세요.</div>
         </div>
       </div>
@@ -928,9 +984,9 @@ function renderStats(){
   const total = ROWS.length;
   const unclear = ROWS.filter(r => r.main==="불명확").length;
   const clear = total - unclear;
-  $("stTotal").textContent = total.toLocaleString();
-  $("stClear").textContent = clear.toLocaleString();
-  $("stUnclear").textContent = unclear.toLocaleString();
+  $("stTotal").textContent = total.toLocaleString()+"건";
+  $("stClear").textContent = clear.toLocaleString()+"건";
+  $("stUnclear").textContent = unclear.toLocaleString()+"건";
   $("stRate").textContent = total ? (clear/total*100).toFixed(1)+"%" : "0%";
 }
 
@@ -961,13 +1017,15 @@ function renderCharts(){
     main.map((x,i)=>
     `<div class="legendrow"><span class="dot" style="background:${mainColors[i]}"></span><span class="lname">${x[0]}</span><span class="lcnt">${x[1].toLocaleString()}건</span><span class="lpct">${(x[1]/total*100).toFixed(1)}%</span></div>`).join("");
 
-  // 세부의도 상위 12
-  const sub = countBy(ROWS, "sub").slice(0,12);
+  // 세부의도 전체 (막대 색은 각 세부의도가 속한 대분류 색)
+  const sub = countBy(ROWS, "sub");
+  const subMainMap = {};
+  ROWS.forEach(r => { subMainMap[r.sub] = r.main; });
   charts.bar = new Chart($("barSub"), {
     type:"bar",
-    data:{labels:sub.map(x=>x[0]), datasets:[{data:sub.map(x=>x[1]), backgroundColor:"#3182f6", borderRadius:5}]},
+    data:{labels:sub.map(x=>x[0]), datasets:[{data:sub.map(x=>x[1]), backgroundColor:sub.map(x=>colorFor(subMainMap[x[0]])), borderRadius:5}]},
     options:{indexAxis:"y", plugins:{legend:{display:false}}, maintainAspectRatio:false,
-      scales:{x:{ticks:{color:"#8b95a1"},grid:{color:"#eef1f4"}},y:{ticks:{color:"#333d4b"},grid:{display:false}}}}
+      scales:{x:{ticks:{color:"#8b95a1"},grid:{color:"#eef1f4"}},y:{ticks:{color:"#333d4b",autoSkip:false},grid:{display:false}}}}
   });
 
   // 일별 추이 (대분류 stacked) - 날짜 있는 경우만
@@ -988,7 +1046,7 @@ function renderCharts(){
       backgroundColor:PALETTE[i%PALETTE.length]+"33", tension:.25, pointRadius:2, borderWidth:2, fill:false
     }))},
     options:{maintainAspectRatio:false,
-      plugins:{legend:{labels:{color:"#333d4b",boxWidth:12}}},
+      plugins:{legend:{position:"top",align:"end",labels:{color:"#333d4b",boxWidth:12}}},
       scales:{x:{ticks:{color:"#8b95a1",maxTicksLimit:16},grid:{color:"#eef1f4"}},
               y:{ticks:{color:"#8b95a1"},grid:{color:"#eef1f4"}}}}
   });
@@ -1148,24 +1206,25 @@ function saveStore(store){
    GitHub 등 정적 배포에서 '공유 누적'을 구현하기 위해,
    저장소에 커밋된 dashboard-data.json(BASE)을 읽어 로컬 업로드분(LOCAL)과 합쳐 보여준다. */
 const DATA_FILE = "dashboard-data.json";
-let BASE_STORE = {weeks:{}, ingested:{}};   // 커밋된 공유 원본 (로드 시 fetch)
+let BASE_STORE = {weeks:{}, ingested:{}, subMain:{}};   // 커밋된 공유 원본 (로드 시 fetch)
 function fetchBaseStore(){
   return fetch(DATA_FILE + "?t=" + (window.__dataCacheBust||""), {cache:"no-store"})
     .then(r => r.ok ? r.json() : null)
-    .then(j => { BASE_STORE = (j && j.weeks) ? {weeks:j.weeks, ingested:j.ingested||{}} : {weeks:{}, ingested:{}}; })
-    .catch(() => { BASE_STORE = {weeks:{}, ingested:{}}; });
+    .then(j => { BASE_STORE = (j && j.weeks) ? {weeks:j.weeks, ingested:j.ingested||{}, subMain:j.subMain||{}} : {weeks:{}, ingested:{}, subMain:{}}; })
+    .catch(() => { BASE_STORE = {weeks:{}, ingested:{}, subMain:{}}; });
 }
 // 두 store를 합쳐 새 store 반환 (주차는 mergeWeekInto로 합산, ingested는 합집합)
 function mergeStores(a, b){
-  const out = {weeks:{}, ingested:{}};
+  const out = {weeks:{}, ingested:{}, subMain:{}};
   [a, b].forEach(s => {
     if(!s) return;
     for(const k in (s.weeks||{})){
       const g = s.weeks[k];
-      if(!out.weeks[k]){ out.weeks[k] = {key:g.key, start:g.start, end:g.end, total:0, clear:0, unclear:0, main:{}, sub:{}, days:{}}; }
+      if(!out.weeks[k]){ out.weeks[k] = {key:g.key, start:g.start, end:g.end, total:0, clear:0, unclear:0, main:{}, sub:{}, days:{}, daysMain:{}}; }
       mergeWeekInto(out.weeks[k], g);
     }
     for(const fp in (s.ingested||{})) out.ingested[fp] = s.ingested[fp];
+    Object.assign(out.subMain, s.subMain || {});
   });
   return out;
 }
@@ -1179,9 +1238,11 @@ function getEffectiveStore(){ return mergeStores(BASE_STORE, loadStore()); }
 function archiveCurrentResults(sourceName){
   const groups = {};
   const weekCache = {};                       // "YYYY-MM-DD" -> isoWeek 결과 (고유 날짜당 1회)
+  const subMainLocal = {};                     // 세부의도 -> 대분류 (차트 색 매핑, 멱등)
   let any = false, dated = 0, minD = null, maxD = null;
   for(let i=0; i<ROWS.length; i++){
     const r = ROWS[i];
+    subMainLocal[r.sub] = r.main;
     if(!r.date) continue;                      // 날짜 없는 행은 주차 배정 불가 → 제외
     any = true; dated++;
     if(minD === null || r.date < minD) minD = r.date;
@@ -1189,12 +1250,14 @@ function archiveCurrentResults(sourceName){
     let w = weekCache[r.date];
     if(!w){ w = weekCache[r.date] = isoWeek(r.date); }
     let g = groups[w.key];
-    if(!g){ g = groups[w.key] = {key:w.key, start:w.start, end:w.end, total:0, clear:0, unclear:0, main:{}, sub:{}, days:{}}; }
+    if(!g){ g = groups[w.key] = {key:w.key, start:w.start, end:w.end, total:0, clear:0, unclear:0, main:{}, sub:{}, days:{}, daysMain:{}}; }
     g.total++;
     if(r.main === "불명확") g.unclear++; else g.clear++;
     g.main[r.main] = (g.main[r.main]||0) + 1;
     g.sub[r.sub]   = (g.sub[r.sub]||0)   + 1;
     g.days[r.date] = (g.days[r.date]||0) + 1;
+    (g.daysMain[r.date] = g.daysMain[r.date] || {});
+    g.daysMain[r.date][r.main] = (g.daysMain[r.date][r.main]||0) + 1;
   }
   if(!any) return {n:0, dup:false};
   const store = loadStore();
@@ -1203,7 +1266,21 @@ function archiveCurrentResults(sourceName){
   // 중복 업로드 방지: 동일 파일로 보이면(이름·집계행수·날짜범위 동일) 합산하지 않고 건너뛴다.
   // 공유 원본(BASE)에 이미 커밋된 파일도 스킵되도록 effective 기준으로 검사한다.
   const fp = (sourceName||"") + "|" + dated + "|" + (minD||"") + "|" + (maxD||"");
-  if(store.ingested[fp] || (BASE_STORE.ingested && BASE_STORE.ingested[fp])) return {n:0, dup:true};
+  const dup = store.ingested[fp] || (BASE_STORE.ingested && BASE_STORE.ingested[fp]);
+  if(dup){
+    // 이미 집계된 파일이라 카운트는 그대로 두되, 차트용 daysMain/subMain만 보강한다.
+    // daysMain 은 '날짜 단위 교체'라 같은 파일을 다시 올려도 수치가 늘지 않는다(멱등).
+    store.subMain = Object.assign(store.subMain || {}, subMainLocal);
+    for(const k in groups){
+      const g = groups[k];
+      let cur = store.weeks[k];
+      if(!cur){ cur = store.weeks[k] = {key:g.key, start:g.start, end:g.end, total:0, clear:0, unclear:0, main:{}, sub:{}, days:{}, daysMain:{}}; }
+      if(!cur.daysMain) cur.daysMain = {};
+      for(const d in g.daysMain) cur.daysMain[d] = g.daysMain[d];   // 날짜별 교체
+    }
+    saveStore(store);
+    return {n:0, dup:true};
+  }
 
   const now = new Date().toISOString();
   let n = 0;
@@ -1216,6 +1293,7 @@ function archiveCurrentResults(sourceName){
     else   { store.weeks[k] = g; }
     n++;
   }
+  store.subMain = Object.assign(store.subMain || {}, subMainLocal);
   store.ingested[fp] = {at:now, name:sourceName||"", rows:dated};
   saveStore(store);
   return {n, dup:false};
@@ -1232,6 +1310,11 @@ function mergeWeekInto(dst, g){
   for(const k in g.sub) dst.sub[k] = (dst.sub[k]||0) + g.sub[k];
   if(!dst.days) dst.days = {};
   for(const d in g.days) dst.days[d] = (dst.days[d]||0) + g.days[d];
+  if(!dst.daysMain) dst.daysMain = {};
+  for(const d in (g.daysMain||{})){
+    if(!dst.daysMain[d]) dst.daysMain[d] = {};
+    for(const m in g.daysMain[d]) dst.daysMain[d][m] = (dst.daysMain[d][m]||0) + g.daysMain[d][m];
+  }
   dst.updatedAt = g.updatedAt;
   dst.source = g.source;
 }
@@ -1309,9 +1392,47 @@ function renderDashboard(){
 function syncDatePill(w){var t=$("dDateText");if(t){var sp=w.start.split("-");t.textContent=sp[0]+"."+sp[1]+"."+sp[2];}var rg=$("dDateRange");if(rg){var ep=w.end.split("-");rg.textContent="~ "+ep[1]+"."+ep[2]+" (7일)";}if(typeof KCAL!=="undefined")KCAL.syncToWeek(w);}
 function weekLabel(w){var sp=w.start.split("-"),ep=w.end.split("-"),wom=Math.floor((+sp[2]-1)/7)+1;return sp[0]+"."+sp[1]+" "+wom+"주차 ("+sp[1]+"."+sp[2]+"~"+ep[1]+"."+ep[2]+")";}
 function weekShort(w){var sp=w.start.split("-"),ep=w.end.split("-");return sp[1]+"."+sp[2]+"~"+ep[1]+"."+ep[2];}
-// 월별 조회: 선택한 월의 '일자별' 검색량 추이 (주차 store의 days[date] 합산)
+// 월별 조회: 선택한 월의 '일자별 대분류별' 검색량 추이 (주차 store의 daysMain[date][main] 합산)
+// daysMain 이 없는 과거 데이터(미재업로드)는 days[date] 단일 총합 라인으로 폴백한다.
 function renderTrendCharts(allWeeks, month){
   if(dCharts.tMain) dCharts.tMain.destroy();
+
+  // 날짜×대분류 합산 (해당 월만)
+  const byDate = {};   // date -> {main: count}
+  let hasMain = false;
+  allWeeks.forEach(w => {
+    for(const d in (w.daysMain||{})){
+      if(month && d.slice(0,7) !== month) continue;
+      hasMain = true;
+      if(!byDate[d]) byDate[d] = {};
+      for(const m in w.daysMain[d]) byDate[d][m] = (byDate[d][m]||0) + w.daysMain[d][m];
+    }
+  });
+
+  if(hasMain){
+    const dates = Object.keys(byDate).sort();
+    const labels = dates.map(d => { const p = d.split("-"); return p[1]+"."+p[2]; });
+    // 대분류 정렬: 전체 합 큰 순 (색은 D_MAIN_COLORS 고정 매핑 재사용)
+    const catTotals = {};
+    dates.forEach(d => { for(const m in byDate[d]) catTotals[m] = (catTotals[m]||0) + byDate[d][m]; });
+    const cats = Object.keys(catTotals).sort((a,b)=> catTotals[b]-catTotals[a]);
+    dCharts.tMain = new Chart($("dTrendMain"), {
+      type:"line",
+      data:{labels, datasets:cats.map(m=>({
+        label:m, data:dates.map(d=> byDate[d][m]||0),
+        borderColor:D_MAIN_COLORS[m]||"#888fa3", backgroundColor:(D_MAIN_COLORS[m]||"#888fa3")+"33",
+        tension:.25, pointRadius:2, pointHoverRadius:4, borderWidth:2, fill:false
+      }))},
+      options:{maintainAspectRatio:false, interaction:{mode:"index",intersect:false},
+        plugins:{legend:{position:"top",align:"end",labels:{color:"#333d4b",boxWidth:12}},
+          tooltip:{callbacks:{title:(it)=>{ const i=it[0].dataIndex; return dates[i]; }, label:(it)=> it.dataset.label+": "+it.parsed.y.toLocaleString()+"건"}}},
+        scales:{x:{ticks:{color:"#8b95a1",maxTicksLimit:16},grid:{display:false}},
+                y:{beginAtZero:true,ticks:{color:"#8b95a1"},grid:{color:"#eef1f4"}}}}
+    });
+    return;
+  }
+
+  // 폴백: daysMain 이 없는 월 → 단일 총합 라인
   const daily = {};
   allWeeks.forEach(w => { for(const d in (w.days||{})){ if(!month || d.slice(0,7) === month) daily[d] = (daily[d]||0) + w.days[d]; } });
   const dates = Object.keys(daily).sort();
@@ -1345,9 +1466,9 @@ function renderWeekDetail(weekKey, store){
   }
   $("dDetailTitle").textContent = "주차별 상세 조회";
   if(w.total){
-    $("dStTotal").textContent   = w.total.toLocaleString();
-    $("dStClear").textContent   = w.clear.toLocaleString();
-    $("dStUnclear").textContent = w.unclear.toLocaleString();
+    $("dStTotal").textContent   = w.total.toLocaleString()+"건";
+    $("dStClear").textContent   = w.clear.toLocaleString()+"건";
+    $("dStUnclear").textContent = w.unclear.toLocaleString()+"건";
     $("dStRate").textContent    = (w.clear/w.total*100).toFixed(1)+"%";
   }
 
@@ -1370,13 +1491,14 @@ function renderWeekDetail(weekKey, store){
     mainEntries.map((x,i)=>
     `<div class="legendrow"><span class="dot" style="background:${colors[i]}"></span><span class="lname">${x[0]}</span><span class="lcnt">${x[1].toLocaleString()}건</span><span class="lpct">${total?(x[1]/total*100).toFixed(1):0}%</span></div>`).join("");
 
-  // 세부의도 상위 12
-  const subEntries = Object.entries(w.sub).sort((a,b)=>b[1]-a[1]).slice(0,12);
+  // 세부의도 전체 (막대 색은 각 세부의도가 속한 대분류 색; 매핑 없으면 회색 폴백)
+  const subEntries = Object.entries(w.sub).sort((a,b)=>b[1]-a[1]);
+  const subMain = (store && store.subMain) || {};
   dCharts.bar = new Chart($("dBarSub"), {
     type:"bar",
-    data:{labels:subEntries.map(x=>x[0]), datasets:[{data:subEntries.map(x=>x[1]), backgroundColor:"#3182f6", borderRadius:5}]},
+    data:{labels:subEntries.map(x=>x[0]), datasets:[{data:subEntries.map(x=>x[1]), backgroundColor:subEntries.map(x=>D_MAIN_COLORS[subMain[x[0]]]||"#888fa3"), borderRadius:5}]},
     options:{indexAxis:"y", plugins:{legend:{display:false}}, maintainAspectRatio:false,
-      scales:{x:{ticks:{color:"#8b95a1"},grid:{color:"#eef1f4"}},y:{ticks:{color:"#333d4b"},grid:{display:false}}}}
+      scales:{x:{ticks:{color:"#8b95a1"},grid:{color:"#eef1f4"}},y:{ticks:{color:"#333d4b",autoSkip:false},grid:{display:false}}}}
   });
 }
 
@@ -1504,11 +1626,11 @@ $("dDateTrigger").addEventListener("click",(e)=>{ e.stopPropagation(); KCAL.togg
 function exportSharedData(){
   const store = getEffectiveStore();
   if(!Object.keys(store.weeks).length){ alert("내보낼 데이터가 없어요.\n먼저 '검색어 의도 분류' 메뉴에서 엑셀 파일을 올려 주세요."); return; }
-  const payload = {weeks:store.weeks, ingested:store.ingested||{}, exportedAt:new Date().toISOString()};
+  const payload = {weeks:store.weeks, ingested:store.ingested||{}, subMain:store.subMain||{}, exportedAt:new Date().toISOString()};
   download(new Blob([JSON.stringify(payload, null, 2)], {type:"application/json;charset=utf-8"}), DATA_FILE);
   setTimeout(()=>{
     if(confirm("'" + DATA_FILE + "' 파일이 다운로드됐어요.\n\n이 파일을 담당자에게 전달하거나 사이트에 올리면, 다른 사람도 같은 결과를 볼 수 있어요.\n\n· [확인] : 방금 받은 파일이 사이트에 반영된 뒤에 누르세요. 이 브라우저에 임시로 쌓아둔 데이터를 정리합니다.\n· [취소] : 아직이면 취소를 눌러 그대로 두세요.")){
-      BASE_STORE = {weeks:payload.weeks, ingested:payload.ingested};
+      BASE_STORE = {weeks:payload.weeks, ingested:payload.ingested, subMain:payload.subMain};
       localStorage.removeItem(STORE_KEY);
       renderDashboard();
     }
@@ -1522,13 +1644,24 @@ function resetAllData(){
 if($("btnDataExport")) $("btnDataExport").addEventListener("click", exportSharedData);
 if($("btnDataReset"))  $("btnDataReset").addEventListener("click", resetAllData);
 
+// 사용법 안내 모달
+(function(){
+  const modal=$("infoModal"); if(!modal) return;
+  const open =()=> modal.classList.remove("hidden");
+  const close=()=> modal.classList.add("hidden");
+  if($("btnDataInfo")) $("btnDataInfo").addEventListener("click", open);
+  if($("infoClose"))   $("infoClose").addEventListener("click", close);
+  modal.addEventListener("click", (e)=>{ if(e.target===modal) close(); });   // 바깥(오버레이) 클릭 시 닫기
+  document.addEventListener("keydown", (e)=>{ if(e.key==="Escape" && !modal.classList.contains("hidden")) close(); });
+})();
+
 checkStorageEnv();
 showView("dashboard");   // 대시보드를 홈으로 (먼저 로컬 기준 렌더)
 // 공유 원본(dashboard-data.json)을 불러온 뒤 대시보드를 다시 렌더 (BASE + LOCAL)
 fetchBaseStore().then(() => { if(!$("viewDashboard").classList.contains("hidden")) renderDashboard(); });
 //   // 시작 시 저장 가능 환경인지 점검 후 안내
 </script>
-<script src="entity-logic.js?v=20260623e"></script>
+<script src="entity-logic.js?v=20260624a"></script>
 <script>
 (function(){
   var q=document.getElementById('q'), runBtn=document.getElementById('runSingle');

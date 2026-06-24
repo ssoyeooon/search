@@ -83,6 +83,7 @@ document.querySelectorAll('#dfilter button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('#dfilter button').forEach(x=>{x.classList.remove('on'); x.style.background='#fff'; x.style.color='#475569';});
   b.classList.add('on'); const t=b.dataset.t;
   if(t){ b.style.background=colors[t]; b.style.color=tcol(t); }
+  else { b.style.background=''; b.style.color=''; }   // 전체 칩: CSS .on 클래스가 파란 배경 처리
   dFilter=t||null; renderDict();
 });
 
