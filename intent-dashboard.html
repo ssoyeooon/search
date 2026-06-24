@@ -344,11 +344,21 @@
     </div>
 
     <div class="grid" style="grid-template-columns:1fr 1fr;margin-bottom:16px" id="chartGrid">
-      <div class="card">
-        <p class="sectitle">대분류 분포</p>
-        <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">
-          <div class="donutwrap" style="width:200px;height:200px"><canvas id="pieMain"></canvas><div class="donutctr" id="ctrMain"></div></div>
-          <div id="legendMain" style="flex:1;min-width:160px"></div>
+      <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+        <div class="card" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <p class="sectitle">대분류 분포</p>
+          <div style="flex:1;display:flex;gap:18px;align-items:center;flex-wrap:wrap;min-height:0">
+            <div class="donutwrap" style="width:190px;height:190px"><canvas id="pieMain"></canvas><div class="donutctr" id="ctrMain"></div></div>
+            <div id="legendMain" style="flex:1;min-width:160px"></div>
+          </div>
+        </div>
+        <div class="card" style="flex:1;display:flex;flex-direction:column;min-height:0">
+          <p class="sectitle">기기별 검색 비중</p>
+          <div id="deviceEmpty" class="chart-empty" style="flex:1">기기(Device Type) 정보가 없는 파일입니다.</div>
+          <div id="deviceBox" class="hidden" style="flex:1;display:flex;gap:18px;align-items:center;flex-wrap:wrap;min-height:0">
+            <div class="donutwrap" style="width:190px;height:190px"><canvas id="devicePie"></canvas><div class="donutctr" id="ctrDevice"></div></div>
+            <div id="deviceLegend" style="flex:1;min-width:160px"></div>
+          </div>
         </div>
       </div>
       <div class="card">
@@ -462,12 +472,22 @@
         <div class="card stat"><div class="n" id="dStRate">-</div><div class="l">분류율</div></div>
       </div>
       <div class="grid" style="grid-template-columns:1fr 1fr">
-        <div class="card">
-          <p class="sectitle">대분류 분포</p>
-          <div id="dPieEmpty" class="chart-empty">검색어 데이터가 업로드되지 않았습니다.<br>검색어 의도 분류 메뉴에서 데이터를 업로드해주세요.</div>
-          <div id="dPieBox" style="display:flex;gap:18px;align-items:center;flex-wrap:wrap" class="hidden">
-            <div class="donutwrap" style="width:200px;height:200px"><canvas id="dPieMain"></canvas><div class="donutctr" id="ctrDMain"></div></div>
-            <div id="dLegendMain" style="flex:1;min-width:160px"></div>
+        <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+          <div class="card" style="flex:1;display:flex;flex-direction:column;min-height:0">
+            <p class="sectitle">대분류 분포</p>
+            <div id="dPieEmpty" class="chart-empty" style="flex:1">검색어 데이터가 업로드되지 않았습니다.<br>검색어 의도 분류 메뉴에서 데이터를 업로드해주세요.</div>
+            <div id="dPieBox" style="flex:1;display:flex;gap:18px;align-items:center;flex-wrap:wrap;min-height:0" class="hidden">
+              <div class="donutwrap" style="width:190px;height:190px"><canvas id="dPieMain"></canvas><div class="donutctr" id="ctrDMain"></div></div>
+              <div id="dLegendMain" style="flex:1;min-width:160px"></div>
+            </div>
+          </div>
+          <div class="card" style="flex:1;display:flex;flex-direction:column;min-height:0">
+            <p class="sectitle">기기별 검색 비중</p>
+            <div id="dDeviceEmpty" class="chart-empty" style="flex:1">기기(Device Type) 데이터가 없습니다.</div>
+            <div id="dDeviceBox" style="flex:1;display:flex;gap:18px;align-items:center;flex-wrap:wrap;min-height:0" class="hidden">
+              <div class="donutwrap" style="width:190px;height:190px"><canvas id="dDevicePie"></canvas><div class="donutctr" id="ctrDDevice"></div></div>
+              <div id="dDeviceLegend" style="flex:1;min-width:160px"></div>
+            </div>
           </div>
         </div>
         <div class="card">
@@ -776,6 +796,13 @@ function xlsxDate(v){
 // 질의어/날짜 컬럼 자동 인식 (classify_log.py 와 동일 후보)
 const QUERY_CANDS = ["Query","query","질의어","검색어","keyword","Keyword","searchword"];
 const DATE_CANDS  = ["Search Time","search time","날짜","검색일시","date","Date","datetime","시간"];
+const DEVICE_CANDS = ["Device Type","device type","device","디바이스","기기","기기유형","단말"];
+// 기기 유형 정규화(라벨) 및 고정 색
+const DEVICE_LABELS = {pc:"PC", desktop:"PC", mobile:"모바일", tablet:"태블릿", unknown:"알 수 없음"};
+// 대분류 분포(PALETTE: 파랑·초록·주황·빨강…)와 겹치지 않도록 보라·핑크 계열로 구분
+const DEVICE_COLORS = {"PC":"#7048e8","모바일":"#e64980","태블릿":"#ae3ec9","알 수 없음":"#868e96"};
+function deviceLabel(v){ const s=String(v==null?"":v).trim(); if(!s) return ""; const k=s.toLowerCase(); return DEVICE_LABELS[k] || s; }
+function deviceColor(lbl){ return DEVICE_COLORS[lbl] || "#b0b8c1"; }
 function pickCol(cols, cands){
   const low = {};
   cols.forEach(c => low[String(c).trim().toLowerCase()] = c);
@@ -821,10 +848,11 @@ function handleXlsxFile(file){
         const cols = Object.keys(rows[0]);
         const qcol = pickCol(cols, QUERY_CANDS) || cols[0];           // Query/질의어 자동 인식, 없으면 첫 열
         const dcol = pickCol(cols, DATE_CANDS);                       // 날짜 열 (없으면 추이 생략)
+        const vcol = pickCol(cols, DEVICE_CANDS);                     // Device Type 열 (없으면 기기 비중 생략)
         rows.forEach(r => {
           const q = r[qcol];
           if(q===null || q===undefined || String(q).trim()==="") return;  // dropna(질의어)
-          records.push({q:String(q), date:dcol ? xlsxDate(r[dcol]) : ""});
+          records.push({q:String(q), date:dcol ? xlsxDate(r[dcol]) : "", device:vcol ? deviceLabel(r[vcol]) : ""});
         });
       });
       classifyAll(records);
@@ -863,7 +891,7 @@ function handleCsvFile(file){
   const CHUNK = 1 << 20;                 // 1MB
   let offset = 0, count = 0;
   let field = "", row = [], inQuotes = false, pendingQuote = false;
-  let header = null, qIdx = -1, dIdx = -1;
+  let header = null, qIdx = -1, dIdx = -1, vIdx = -1;
 
   function pushField(){ row.push(field); field = ""; }
   function emitRow(){
@@ -872,12 +900,14 @@ function handleCsvFile(file){
       header = row.map(s => s.trim());
       qIdx = pickIdx(header, QUERY_CANDS); if(qIdx < 0) qIdx = 0;   // 없으면 첫 열
       dIdx = pickIdx(header, DATE_CANDS);                          // 없으면 추이 생략
+      vIdx = pickIdx(header, DEVICE_CANDS);                        // Device Type (없으면 기기 비중 생략)
     } else {
       const q = row[qIdx];
       if(q != null && String(q).trim() !== ""){
         const date = dIdx >= 0 ? parseCsvDate(row[dIdx]) : "";
+        const device = vIdx >= 0 ? deviceLabel(row[vIdx]) : "";
         const [main, sub] = classify(String(q));
-        ROWS.push({q:String(q), date, main, sub});
+        ROWS.push({q:String(q), date, main, sub, device});
         count++;
       }
     }
@@ -942,7 +972,7 @@ function classifyAll(records){
     for(; i<end; i++){
       const r = records[i];
       const [main, sub] = classify(r.q);
-      ROWS[i] = {q:r.q, date:r.date, main, sub};
+      ROWS[i] = {q:r.q, date:r.date, main, sub, device:r.device||""};
     }
     const pct = records.length ? Math.round(i/records.length*100) : 100;
     $("progBar").style.width = (5 + pct*0.95) + "%";
@@ -994,6 +1024,27 @@ function setDonutCenter(id,name,pct,cnt){var el=document.getElementById(id);if(!
 const SVG_REFRESH='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"></path><path d="M21 3v6h-6"></path></svg>';
 function relTime(iso){if(!iso)return "방금 업데이트됨";var d=(Date.now()-new Date(iso).getTime())/1000;if(d<60)return "방금 업데이트됨";if(d<3600)return Math.floor(d/60)+"분 전 업데이트됨";if(d<86400)return Math.floor(d/3600)+"시간 전 업데이트됨";return Math.floor(d/86400)+"일 전 업데이트됨";}
 (function(){ if(window.Chart && Chart.Tooltip && Chart.Tooltip.positioners && !Chart.Tooltip.positioners.donutCenter){ Chart.Tooltip.positioners.donutCenter=function(){ var ca=this.chart.chartArea; return {x:(ca.left+ca.right)/2, y:(ca.top+ca.bottom)/2}; }; } })();
+// 기기별 검색 비중 도넛 (대분류 도넛과 동일 스타일, 색은 DEVICE_COLORS 고정 매핑)
+function renderDevicePie(canvasId, ctrId, legendId, entries){
+  const total = entries.reduce((s,x)=>s+x[1],0);
+  const colors = entries.map(x=>deviceColor(x[0]));
+  const realCounts = entries.map(x=>x[1]);
+  const MIN_ARC = total*0.012;
+  const drawVals = realCounts.map(c=>Math.max(c, MIN_ARC));
+  const chart = new Chart($(canvasId), {
+    type:"doughnut",
+    data:{labels:entries.map(x=>x[0]), datasets:[{data:drawVals, backgroundColor:colors, borderColor:"#fff", borderWidth:3, spacing:1}]},
+    options:{plugins:{legend:{display:false},
+      tooltip:{enabled:false, external:(context)=>{ var el=document.getElementById(ctrId); if(!el) return; var tt=context.tooltip; if(tt.opacity===0){ el.innerHTML=""; return; } var i=tt.dataPoints[0].dataIndex; var nm=entries[i][0], c=realCounts[i], col=colors[i]; el.innerHTML='<div class="tt-box"><div class="tt-title"><span class="tt-chip" style="background:'+col+'"></span>'+nm+'</div><div class="tt-val">'+c.toLocaleString()+'건('+(total?(c/total*100).toFixed(1):0)+'%)</div></div>'; }}},
+      cutout:"66%", maintainAspectRatio:false, devicePixelRatio:Math.max(window.devicePixelRatio||1,2)}
+  });
+  $(legendId).innerHTML =
+    `<div class="legendrow" style="margin:0 0 9px"><span class="totalcount" style="margin:0">총 <b>${total.toLocaleString()}</b>건</span></div>` +
+    entries.map((x,i)=>
+    `<div class="legendrow"><span class="dot" style="background:${colors[i]}"></span><span class="lname">${x[0]}</span><span class="lcnt">${x[1].toLocaleString()}건</span><span class="lpct">${total?(x[1]/total*100).toFixed(1):0}%</span></div>`).join("");
+  return chart;
+}
+
 function renderCharts(){
   Object.values(charts).forEach(c => c && c.destroy());
   // 대분류
@@ -1010,12 +1061,23 @@ function renderCharts(){
     data:{labels:main.map(x=>x[0]), datasets:[{data:drawVals, backgroundColor:mainColors, borderColor:"#fff", borderWidth:3, spacing:1}]},
     options:{plugins:{legend:{display:false},
       tooltip:{enabled:false, external:(context)=>{ var el=document.getElementById("ctrMain"); if(!el) return; var tt=context.tooltip; if(tt.opacity===0){ el.innerHTML=""; return; } var i=tt.dataPoints[0].dataIndex; var nm=main[i][0], c=realCounts[i], col=mainColors[i]; el.innerHTML='<div class="tt-box"><div class="tt-title"><span class="tt-chip" style="background:'+col+'"></span>'+nm+'</div><div class="tt-val">'+c.toLocaleString()+'건('+((c/total*100).toFixed(1))+'%)</div></div>'; }}},
-      cutout:"70%", maintainAspectRatio:false}
+      cutout:"70%", maintainAspectRatio:false, devicePixelRatio:Math.max(window.devicePixelRatio||1,2)}
   });
   $("legendMain").innerHTML =
     `<div class="legendrow" style="margin:0 0 9px"><span class="totalcount" style="margin:0">총 <b>${total.toLocaleString()}</b>건</span></div>` +
     main.map((x,i)=>
     `<div class="legendrow"><span class="dot" style="background:${mainColors[i]}"></span><span class="lname">${x[0]}</span><span class="lcnt">${x[1].toLocaleString()}건</span><span class="lpct">${(x[1]/total*100).toFixed(1)}%</span></div>`).join("");
+
+  // 기기별 검색 비중 (Device Type 열이 있을 때만)
+  const dev = countBy(ROWS.filter(r=>r.device), "device");
+  if(dev.length){
+    $("deviceEmpty").classList.add("hidden");
+    $("deviceBox").classList.remove("hidden");
+    charts.device = renderDevicePie("devicePie","ctrDevice","deviceLegend", dev);
+  } else {
+    $("deviceBox").classList.add("hidden");
+    $("deviceEmpty").classList.remove("hidden");
+  }
 
   // 세부의도 전체 (막대 색은 각 세부의도가 속한 대분류 색)
   const sub = countBy(ROWS, "sub");
@@ -1024,7 +1086,8 @@ function renderCharts(){
   charts.bar = new Chart($("barSub"), {
     type:"bar",
     data:{labels:sub.map(x=>x[0]), datasets:[{data:sub.map(x=>x[1]), backgroundColor:sub.map(x=>colorFor(subMainMap[x[0]])), borderRadius:5}]},
-    options:{indexAxis:"y", plugins:{legend:{display:false}}, maintainAspectRatio:false,
+    options:{indexAxis:"y", plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:(it)=> it.parsed.x.toLocaleString()+"건"}}}, maintainAspectRatio:false,
       scales:{x:{ticks:{color:"#8b95a1"},grid:{color:"#eef1f4"}},y:{ticks:{color:"#333d4b",autoSkip:false},grid:{display:false}}}}
   });
 
@@ -1220,7 +1283,7 @@ function mergeStores(a, b){
     if(!s) return;
     for(const k in (s.weeks||{})){
       const g = s.weeks[k];
-      if(!out.weeks[k]){ out.weeks[k] = {key:g.key, start:g.start, end:g.end, total:0, clear:0, unclear:0, main:{}, sub:{}, days:{}, daysMain:{}}; }
+      if(!out.weeks[k]){ out.weeks[k] = {key:g.key, start:g.start, end:g.end, total:0, clear:0, unclear:0, main:{}, sub:{}, days:{}, daysMain:{}, daysDevice:{}}; }
       mergeWeekInto(out.weeks[k], g);
     }
     for(const fp in (s.ingested||{})) out.ingested[fp] = s.ingested[fp];
@@ -1250,7 +1313,7 @@ function archiveCurrentResults(sourceName){
     let w = weekCache[r.date];
     if(!w){ w = weekCache[r.date] = isoWeek(r.date); }
     let g = groups[w.key];
-    if(!g){ g = groups[w.key] = {key:w.key, start:w.start, end:w.end, total:0, clear:0, unclear:0, main:{}, sub:{}, days:{}, daysMain:{}}; }
+    if(!g){ g = groups[w.key] = {key:w.key, start:w.start, end:w.end, total:0, clear:0, unclear:0, main:{}, sub:{}, days:{}, daysMain:{}, daysDevice:{}}; }
     g.total++;
     if(r.main === "불명확") g.unclear++; else g.clear++;
     g.main[r.main] = (g.main[r.main]||0) + 1;
@@ -1258,6 +1321,10 @@ function archiveCurrentResults(sourceName){
     g.days[r.date] = (g.days[r.date]||0) + 1;
     (g.daysMain[r.date] = g.daysMain[r.date] || {});
     g.daysMain[r.date][r.main] = (g.daysMain[r.date][r.main]||0) + 1;
+    if(r.device){
+      (g.daysDevice[r.date] = g.daysDevice[r.date] || {});
+      g.daysDevice[r.date][r.device] = (g.daysDevice[r.date][r.device]||0) + 1;
+    }
   }
   if(!any) return {n:0, dup:false};
   const store = loadStore();
@@ -1274,9 +1341,11 @@ function archiveCurrentResults(sourceName){
     for(const k in groups){
       const g = groups[k];
       let cur = store.weeks[k];
-      if(!cur){ cur = store.weeks[k] = {key:g.key, start:g.start, end:g.end, total:0, clear:0, unclear:0, main:{}, sub:{}, days:{}, daysMain:{}}; }
+      if(!cur){ cur = store.weeks[k] = {key:g.key, start:g.start, end:g.end, total:0, clear:0, unclear:0, main:{}, sub:{}, days:{}, daysMain:{}, daysDevice:{}}; }
       if(!cur.daysMain) cur.daysMain = {};
       for(const d in g.daysMain) cur.daysMain[d] = g.daysMain[d];   // 날짜별 교체
+      if(!cur.daysDevice) cur.daysDevice = {};
+      for(const d in g.daysDevice) cur.daysDevice[d] = g.daysDevice[d];   // 날짜별 교체(멱등)
     }
     saveStore(store);
     return {n:0, dup:true};
@@ -1315,6 +1384,11 @@ function mergeWeekInto(dst, g){
     if(!dst.daysMain[d]) dst.daysMain[d] = {};
     for(const m in g.daysMain[d]) dst.daysMain[d][m] = (dst.daysMain[d][m]||0) + g.daysMain[d][m];
   }
+  if(!dst.daysDevice) dst.daysDevice = {};
+  for(const d in (g.daysDevice||{})){
+    if(!dst.daysDevice[d]) dst.daysDevice[d] = {};
+    for(const v in g.daysDevice[d]) dst.daysDevice[d][v] = (dst.daysDevice[d][v]||0) + g.daysDevice[d][v];
+  }
   dst.updatedAt = g.updatedAt;
   dst.source = g.source;
 }
@@ -1339,7 +1413,7 @@ function showView(name){
 
 // 데이터 유무에 따라 차트 영역(차트 박스 ↔ 안내 문구)을 토글
 function setDashEmpty(empty){
-  [["dTrendBox","dTrendEmpty"],["dPieBox","dPieEmpty"],["dSubBox","dSubEmpty"]].forEach(p=>{
+  [["dTrendBox","dTrendEmpty"],["dPieBox","dPieEmpty"],["dSubBox","dSubEmpty"],["dDeviceBox","dDeviceEmpty"]].forEach(p=>{
     const box=$(p[0]), msg=$(p[1]);
     if(box) box.classList.toggle("hidden", empty);
     if(msg) msg.classList.toggle("hidden", !empty);
@@ -1457,6 +1531,7 @@ function renderWeekDetail(weekKey, store){
   const w = store.weeks[weekKey];
   if(dCharts.pie) dCharts.pie.destroy();
   if(dCharts.bar) dCharts.bar.destroy();
+  if(dCharts.device) dCharts.device.destroy();
   if(!w || !w.total){
     $("dStTotal").textContent   = "-";
     $("dStClear").textContent   = "-";
@@ -1484,7 +1559,7 @@ function renderWeekDetail(weekKey, store){
     data:{labels:mainEntries.map(x=>x[0]), datasets:[{data:drawVals, backgroundColor:colors, borderColor:"#fff", borderWidth:3, spacing:1}]},
     options:{plugins:{legend:{display:false},
       tooltip:{enabled:false, external:(context)=>{ var el=document.getElementById("ctrDMain"); if(!el) return; var tt=context.tooltip; if(tt.opacity===0){ el.innerHTML=""; return; } var i=tt.dataPoints[0].dataIndex; var nm=mainEntries[i][0], c=realCounts[i], col=colors[i]; el.innerHTML='<div class="tt-box"><div class="tt-title"><span class="tt-chip" style="background:'+col+'"></span>'+nm+'</div><div class="tt-val">'+c.toLocaleString()+'건('+(total?(c/total*100).toFixed(1):0)+'%)</div></div>'; }}},
-      cutout:"70%", maintainAspectRatio:false}
+      cutout:"70%", maintainAspectRatio:false, devicePixelRatio:Math.max(window.devicePixelRatio||1,2)}
   });
   $("dLegendMain").innerHTML =
     `<div class="legendrow" style="margin:0 0 9px"><span class="totalcount" style="margin:0">총 <b>${total.toLocaleString()}</b>건</span></div>` +
@@ -1497,9 +1572,23 @@ function renderWeekDetail(weekKey, store){
   dCharts.bar = new Chart($("dBarSub"), {
     type:"bar",
     data:{labels:subEntries.map(x=>x[0]), datasets:[{data:subEntries.map(x=>x[1]), backgroundColor:subEntries.map(x=>D_MAIN_COLORS[subMain[x[0]]]||"#888fa3"), borderRadius:5}]},
-    options:{indexAxis:"y", plugins:{legend:{display:false}}, maintainAspectRatio:false,
+    options:{indexAxis:"y", plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:(it)=> it.parsed.x.toLocaleString()+"건"}}}, maintainAspectRatio:false,
       scales:{x:{ticks:{color:"#8b95a1"},grid:{color:"#eef1f4"}},y:{ticks:{color:"#333d4b",autoSkip:false},grid:{display:false}}}}
   });
+
+  // 기기별 검색 비중 (주차 daysDevice 합산; 없으면 안내 문구)
+  const devCounts = {};
+  for(const d in (w.daysDevice||{})){ for(const v in w.daysDevice[d]) devCounts[v] = (devCounts[v]||0) + w.daysDevice[d][v]; }
+  const devEntries = Object.entries(devCounts).sort((a,b)=>b[1]-a[1]);
+  if(devEntries.length){
+    $("dDeviceEmpty").classList.add("hidden");
+    $("dDeviceBox").classList.remove("hidden");
+    dCharts.device = renderDevicePie("dDevicePie","ctrDDevice","dDeviceLegend", devEntries);
+  } else {
+    $("dDeviceBox").classList.add("hidden");
+    $("dDeviceEmpty").classList.remove("hidden");
+  }
 }
 
 $("navDash").addEventListener("click",   ()=> showView("dashboard"));
