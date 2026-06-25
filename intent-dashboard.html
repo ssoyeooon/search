@@ -413,8 +413,14 @@
       <button type="button" id="btnDataInfo" class="iconinfo" title="전체 초기화·데이터 내보내기 사용법" aria-label="버튼 사용법 안내">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5"></path><path d="M12 8h.01"></path></svg>
       </button>
+      <button type="button" id="btnRebuild" class="btn ghost" title="분류 기준/사전을 바꾼 뒤, 모든 원본 엑셀을 다시 올려 기존 데이터를 새 기준으로 재집계(교체)합니다">기준 변경 반영</button>
       <button type="button" id="btnDataReset" class="btn ghost" title="이 브라우저에 쌓인 임시(미커밋) 데이터를 비웁니다">전체 초기화</button>
       <button type="button" id="btnDataExport" class="btn" title="누적 데이터를 dashboard-data.json 으로 내보내 GitHub에 커밋하면 모두가 공유합니다">데이터 내보내기</button>
+    </div>
+
+    <div id="rebuildBar" style="display:none;align-items:center;gap:10px;margin:0 0 14px;padding:10px 14px;border:1px solid #f5a623;background:#fff8ec;border-radius:10px;font-size:13px;font-weight:600;color:#8a5a00">
+      <span id="rebuildMsg">🔄 재생성 모드</span>
+      <button type="button" id="btnRebuildCancel" class="btn ghost" style="margin-left:auto">재생성 취소</button>
     </div>
 
     <div id="infoModal" class="modal-overlay hidden" role="presentation">
@@ -1218,6 +1224,8 @@ function download(blob, name){
    주간 대시보드 — localStorage 주차별 누적 + 추이/상세 조회
    ===================================================================== */
 const STORE_KEY = "intentWeekly:v1";
+const REBUILD_KEY = "intentWeekly:rebuild";   // 재분류(전체 재생성) 모드 플래그 — reload 견딤
+function isRebuild(){ try{ return localStorage.getItem(REBUILD_KEY) === "1"; }catch(e){ return false; } }
 let dCharts = {};          // 대시보드 차트 인스턴스 (기존 charts와 분리)
 let D_MAIN_COLORS = {};
 let SELECTED_WEEK = null;
@@ -1277,6 +1285,7 @@ function saveStore(store){
 const DATA_FILE = "dashboard-data.json";
 let BASE_STORE = {weeks:{}, ingested:{}, subMain:{}};   // 커밋된 공유 원본 (로드 시 fetch)
 function fetchBaseStore(){
+  if(isRebuild()){ BASE_STORE = {weeks:{}, ingested:{}, subMain:{}}; return Promise.resolve(); }   // 재생성 모드: 공유 BASE 제외(0부터 재집계)
   return fetch(DATA_FILE + "?t=" + (window.__dataCacheBust||""), {cache:"no-store"})
     .then(r => r.ok ? r.json() : null)
     .then(j => { BASE_STORE = (j && j.weeks) ? {weeks:j.weeks, ingested:j.ingested||{}, subMain:j.subMain||{}} : {weeks:{}, ingested:{}, subMain:{}}; })
@@ -1428,6 +1437,7 @@ function setDashEmpty(empty){
 }
 function renderDashboard(){
   if(typeof updateSyncStatus === "function") updateSyncStatus();
+  if(typeof updateRebuildBar === "function") updateRebuildBar();
   const store = getEffectiveStore();
   const weeks = Object.values(store.weeks).sort((a,b)=> a.key<b.key?-1 : a.key>b.key?1:0);
   if(!weeks.length){
@@ -1744,6 +1754,7 @@ function updateSyncStatus(){
 }
 // 로드 시: LOCAL 업로드가 모두 BASE에 반영됐으면 임시 데이터를 자동 정리 (이중집계·유실 방지)
 function syncLocalWithBase(){
+  if(isRebuild()) return;   // 재생성 모드: BASE가 비어 있어 매칭/정리 로직을 돌리면 재집계분이 지워질 수 있어 건너뜀
   const hasLocal = Object.keys((loadStore().ingested) || {}).length > 0;
   if(hasLocal && pendingUploadKeys().length === 0){
     localStorage.removeItem(STORE_KEY);
@@ -1752,14 +1763,50 @@ function syncLocalWithBase(){
   updateSyncStatus();
 }
 
+// ===== 재분류(전체 재생성) 모드 =====
+// 분류 기준/사전이 바뀐 뒤 기존 데이터에 새 기준을 반영하려면, 원본 엑셀을 새 기준으로 0부터 재집계해야 한다.
+// 저장소는 집계 카운트만 보관(원본 질의어 없음)하므로 in-place 재분류는 불가 → 전량 재업로드로 재생성한다.
+function updateRebuildBar(){
+  const bar = $("rebuildBar"); if(!bar) return;
+  if(isRebuild()){
+    bar.style.display = "flex";
+    const n = Object.keys((loadStore().weeks) || {}).length;
+    const msg = $("rebuildMsg");
+    if(msg) msg.textContent = "🔄 재생성 모드 — '검색어 의도 분류'에서 원본 엑셀을 모두 다시 올린 뒤 [데이터 내보내기] 하세요. (현재 재집계: " + n + "개 주차)";
+  } else {
+    bar.style.display = "none";
+  }
+}
+function startRebuild(){
+  if(!confirm("분류 기준/사전을 바꾼 뒤 기존 데이터에 새 기준을 반영하려면, 모든 원본 엑셀을 다시 올려야 합니다.\n\n시작하면 화면의 누적 데이터를 빈 상태로 두고(공유 데이터는 화면에서만 제외) 처음부터 재집계합니다. '검색어 의도 분류' 메뉴에서 원본을 모두 다시 올린 뒤 [데이터 내보내기]로 새 dashboard-data.json을 받아 커밋하면 기존 공유 데이터가 교체됩니다.\n\n계속할까요?")) return;
+  try{ localStorage.setItem(REBUILD_KEY, "1"); }catch(e){}
+  localStorage.removeItem(STORE_KEY);                 // LOCAL(임시 누적) 비움
+  BASE_STORE = {weeks:{}, ingested:{}, subMain:{}};   // 세션 내 공유 BASE 제외
+  updateRebuildBar();
+  renderDashboard();
+  toast("재생성 모드 시작 — '검색어 의도 분류'에서 원본 엑셀을 모두 다시 올려 주세요.", 5000);
+}
+function cancelRebuild(){
+  if(!confirm("재생성 모드를 종료하고 공유 데이터(원래 상태)로 돌아갑니다.\n아직 [데이터 내보내기]로 저장하지 않은 재집계 내용은 사라집니다.\n\n계속할까요?")) return;
+  try{ localStorage.removeItem(REBUILD_KEY); }catch(e){}
+  localStorage.removeItem(STORE_KEY);                 // 재집계 임시분 정리
+  fetchBaseStore().then(()=>{ updateRebuildBar(); renderDashboard(); });   // 실제 BASE 복원
+}
+
 // ===== 공유용 데이터 내보내기 / 전체 초기화 =====
 function exportSharedData(){
   const store = getEffectiveStore();
   if(!Object.keys(store.weeks).length){ alert("내보낼 데이터가 없어요.\n먼저 '검색어 의도 분류' 메뉴에서 엑셀 파일을 올려 주세요."); return; }
+  if(isRebuild()){
+    const wks = Object.keys(store.weeks).sort();
+    if(!confirm("【재생성 모드】 이 파일은 기존 공유 데이터를 전부 교체합니다.\n\n현재 재집계된 주차 " + wks.length + "개:\n" + wks.join(", ") + "\n\n모든 원본 엑셀을 빠짐없이 다시 올렸는지 확인하세요. 누락된 주차는 공유 데이터에서 사라집니다.\n\n이대로 내보낼까요?")) return;
+  }
   const payload = {weeks:store.weeks, ingested:store.ingested||{}, subMain:store.subMain||{}, exportedAt:new Date().toISOString()};
   download(new Blob([JSON.stringify(payload, null, 2)], {type:"application/json;charset=utf-8"}), DATA_FILE);
   // 파괴적인 '확인=정리'를 없앴다. 임시 데이터는 BASE에 반영된 게 확인되면 다음 접속 때 syncLocalWithBase가 자동 정리한다.
-  toast("‘" + DATA_FILE + "’ 파일이 다운로드됐어요. 담당자에게 전달하여 데이터 업데이트를 요청해주세요.", 5000);
+  toast(isRebuild()
+    ? "‘" + DATA_FILE + "’ 다운로드됨 — 커밋해 공유 데이터를 교체한 뒤 [재생성 취소]를 눌러 모드를 종료하세요."
+    : "‘" + DATA_FILE + "’ 파일이 다운로드됐어요. 담당자에게 전달하여 데이터 업데이트를 요청해주세요.", 5000);
 }
 function resetAllData(){
   if(!confirm("이 브라우저에 임시로 쌓아둔 데이터를 모두 지웁니다.\n이미 사이트에 올린(공유된) 데이터는 그대로 유지돼요.\n\n계속할까요?")) return;
@@ -1768,6 +1815,8 @@ function resetAllData(){
 }
 if($("btnDataExport")) $("btnDataExport").addEventListener("click", exportSharedData);
 if($("btnDataReset"))  $("btnDataReset").addEventListener("click", resetAllData);
+if($("btnRebuild"))       $("btnRebuild").addEventListener("click", startRebuild);
+if($("btnRebuildCancel")) $("btnRebuildCancel").addEventListener("click", cancelRebuild);
 
 // 사용법 안내 모달
 (function(){
@@ -1783,7 +1832,7 @@ if($("btnDataReset"))  $("btnDataReset").addEventListener("click", resetAllData)
 checkStorageEnv();
 showView("dashboard");   // 대시보드를 홈으로 (먼저 로컬 기준 렌더)
 // 공유 원본(dashboard-data.json)을 불러온 뒤 대시보드를 다시 렌더 (BASE + LOCAL)
-fetchBaseStore().then(() => { syncLocalWithBase(); if(!$("viewDashboard").classList.contains("hidden")) renderDashboard(); });
+fetchBaseStore().then(() => { syncLocalWithBase(); updateRebuildBar(); if(!$("viewDashboard").classList.contains("hidden")) renderDashboard(); });
 //   // 시작 시 저장 가능 환경인지 점검 후 안내
 </script>
 <script src="entity-logic.js?v=20260625b"></script>
