@@ -472,7 +472,7 @@
       </div>
 
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 14px" data-comment-anchor="6fbc2b7c82-div">
-        <p class="sectitle" id="dDetailTitle" style="margin:0">주차별 상세 조회</p>
+        <p class="sectitle" id="dDetailTitle" style="margin:0">기간별 상세 조회</p>
         <span style="flex:1"></span>
         <div style="position:relative">
           <div class="pillbox" id="dDateField" data-comment-anchor="ce1a495f37-div"><span class="pl">조회 기간</span><button type="button" id="dDateTrigger" class="kc-field"><span id="dDateText">날짜 선택</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2.5"></rect><path d="M3 9h18M8 2.5v4M16 2.5v4"></path></svg></button><span id="dDateRange" class="muted" style="font-weight:600;font-variant-numeric:tabular-nums"></span></div>
@@ -1230,7 +1230,7 @@ const REBUILD_KEY = "intentWeekly:rebuild";   // 재분류(전체 재생성) 모
 function isRebuild(){ try{ return localStorage.getItem(REBUILD_KEY) === "1"; }catch(e){ return false; } }
 let dCharts = {};          // 대시보드 차트 인스턴스 (기존 charts와 분리)
 let D_MAIN_COLORS = {};
-let SELECTED_WEEK = null;
+let SELECTED_RANGE = null;   // {start:"YYYY-MM-DD", end:"YYYY-MM-DD"} — 기간 상세 조회 선택 범위
 let SELECTED_MONTH = null;   // "YYYY-MM" — 월별 조회 필터    // 대분류 -> 색 (전체 주 합집합 기준 고정 매핑)
 
 // "YYYY-MM-DD" -> ISO 주차 {key:"2026-W25", start(월), end(일)}
@@ -1333,7 +1333,7 @@ function archiveCurrentResults(sourceName){
     let w = weekCache[r.date];
     if(!w){ w = weekCache[r.date] = isoWeek(r.date); }
     let g = groups[w.key];
-    if(!g){ g = groups[w.key] = {key:w.key, start:w.start, end:w.end, total:0, clear:0, unclear:0, main:{}, sub:{}, days:{}, daysMain:{}, daysDevice:{}}; }
+    if(!g){ g = groups[w.key] = {key:w.key, start:w.start, end:w.end, total:0, clear:0, unclear:0, main:{}, sub:{}, days:{}, daysMain:{}, daysSub:{}, daysDevice:{}}; }
     g.total++;
     if(r.main === "불명확") g.unclear++; else g.clear++;
     g.main[r.main] = (g.main[r.main]||0) + 1;
@@ -1341,6 +1341,8 @@ function archiveCurrentResults(sourceName){
     g.days[r.date] = (g.days[r.date]||0) + 1;
     (g.daysMain[r.date] = g.daysMain[r.date] || {});
     g.daysMain[r.date][r.main] = (g.daysMain[r.date][r.main]||0) + 1;
+    (g.daysSub[r.date] = g.daysSub[r.date] || {});
+    g.daysSub[r.date][r.sub] = (g.daysSub[r.date][r.sub]||0) + 1;
     if(r.device){
       (g.daysDevice[r.date] = g.daysDevice[r.date] || {});
       g.daysDevice[r.date][r.device] = (g.daysDevice[r.date][r.device]||0) + 1;
@@ -1361,9 +1363,11 @@ function archiveCurrentResults(sourceName){
     for(const k in groups){
       const g = groups[k];
       let cur = store.weeks[k];
-      if(!cur){ cur = store.weeks[k] = {key:g.key, start:g.start, end:g.end, total:0, clear:0, unclear:0, main:{}, sub:{}, days:{}, daysMain:{}, daysDevice:{}}; }
+      if(!cur){ cur = store.weeks[k] = {key:g.key, start:g.start, end:g.end, total:0, clear:0, unclear:0, main:{}, sub:{}, days:{}, daysMain:{}, daysSub:{}, daysDevice:{}}; }
       if(!cur.daysMain) cur.daysMain = {};
       for(const d in g.daysMain) cur.daysMain[d] = g.daysMain[d];   // 날짜별 교체
+      if(!cur.daysSub) cur.daysSub = {};
+      for(const d in g.daysSub) cur.daysSub[d] = g.daysSub[d];   // 날짜별 교체(멱등)
       if(!cur.daysDevice) cur.daysDevice = {};
       for(const d in g.daysDevice) cur.daysDevice[d] = g.daysDevice[d];   // 날짜별 교체(멱등)
     }
@@ -1403,6 +1407,11 @@ function mergeWeekInto(dst, g){
   for(const d in (g.daysMain||{})){
     if(!dst.daysMain[d]) dst.daysMain[d] = {};
     for(const m in g.daysMain[d]) dst.daysMain[d][m] = (dst.daysMain[d][m]||0) + g.daysMain[d][m];
+  }
+  if(!dst.daysSub) dst.daysSub = {};
+  for(const d in (g.daysSub||{})){
+    if(!dst.daysSub[d]) dst.daysSub[d] = {};
+    for(const s in g.daysSub[d]) dst.daysSub[d][s] = (dst.daysSub[d][s]||0) + g.daysSub[d][s];
   }
   if(!dst.daysDevice) dst.daysDevice = {};
   for(const d in (g.daysDevice||{})){
@@ -1480,12 +1489,18 @@ function renderDashboard(){
   D_MAIN_COLORS = {};
   mainOrder.forEach((m,i)=> D_MAIN_COLORS[m] = PALETTE[i%PALETTE.length]);
 
-  // 주 선택 (최신 주가 위로)
+  // 기간 선택 (기본: 최신 주 범위. 기존 선택이 데이터 범위 안이면 유지)
   const sorted = weeks;
   KCAL_RANGE.min = sorted[0].start; KCAL_RANGE.max = sorted[sorted.length-1].end;
-  let key = (SELECTED_WEEK && store.weeks[SELECTED_WEEK]) ? SELECTED_WEEK : sorted[sorted.length-1].key;
-  SELECTED_WEEK = key;
-  syncDatePill(store.weeks[key]);
+  const last = sorted[sorted.length-1];
+  let rng;
+  if(SELECTED_RANGE && SELECTED_RANGE.start >= KCAL_RANGE.min && SELECTED_RANGE.end <= KCAL_RANGE.max){
+    rng = SELECTED_RANGE;
+  } else {
+    rng = {start:last.start, end:last.end};
+  }
+  SELECTED_RANGE = rng;
+  syncDatePill(rng.start, rng.end);
 
   // 월별 조회: 가능한 월 범위는 '실제 데이터 날짜(days)' 기준으로 산출 (주 시작월이 아니라 일자 기준)
   let months = [...new Set(weeks.flatMap(w=> Object.keys(w.days||{})).map(d=> d.slice(0,7)))].sort();
@@ -1494,10 +1509,15 @@ function renderDashboard(){
   if(!SELECTED_MONTH || !months.includes(SELECTED_MONTH)) SELECTED_MONTH = months[months.length-1];
   { const mt=$("dMonthText"); if(mt&&SELECTED_MONTH){ const p=SELECTED_MONTH.split("-"); mt.textContent=p[0]+"."+p[1]; } }
   renderTrendCharts(weeks, SELECTED_MONTH);
-  renderWeekDetail(key, store);
+  renderRangeDetail(aggregateRange(store, rng.start, rng.end), store);
 }
 
-function syncDatePill(w){var t=$("dDateText");if(t){var sp=w.start.split("-");t.textContent=sp[0]+"."+sp[1]+"."+sp[2];}var rg=$("dDateRange");if(rg){var ep=w.end.split("-");rg.textContent="~ "+ep[1]+"."+ep[2]+" (7일)";}if(typeof KCAL!=="undefined")KCAL.syncToWeek(w);}
+function syncDatePill(start, end){
+  var t=$("dDateText"); if(t){ var sp=start.split("-"); t.textContent=sp[0]+"."+sp[1]+"."+sp[2]; }
+  var rg=$("dDateRange");
+  if(rg){ var ep=end.split("-"); var days=Math.round((new Date(end)-new Date(start))/86400000)+1; rg.textContent="~ "+ep[1]+"."+ep[2]+" ("+days+"일)"; }
+  if(typeof KCAL!=="undefined") KCAL.syncToRange(start, end);
+}
 function weekLabel(w){var sp=w.start.split("-"),ep=w.end.split("-"),wom=Math.floor((+sp[2]-1)/7)+1;return sp[0]+"."+sp[1]+" "+wom+"주차 ("+sp[1]+"."+sp[2]+"~"+ep[1]+"."+ep[2]+")";}
 function weekShort(w){var sp=w.start.split("-"),ep=w.end.split("-");return sp[1]+"."+sp[2]+"~"+ep[1]+"."+ep[2];}
 // 월별 조회: 선택한 월의 '일자별 대분류별' 검색량 추이 (주차 store의 daysMain[date][main] 합산)
@@ -1560,21 +1580,67 @@ function renderTrendCharts(allWeeks, month){
   });
 }
 
-function renderWeekDetail(weekKey, store){
+// 임의 기간[start,end](양끝 포함)의 일 단위 데이터를 합산해 '주차 객체'와 동일한 형태로 반환.
+// total/clear/unclear/main/days/daysDevice 는 일 단위(daysMain·daysDevice)로 정확히 재집계한다.
+// 세부의도(sub)는 daysSub 가 있으면 일 단위 합산, 없으면 '기간에 완전히 포함되는 주'의 sub 만 합산(폴백).
+function aggregateRange(store, start, end){
   store = store || getEffectiveStore();
-  const w = store.weeks[weekKey];
+  if(end < start){ const t=start; start=end; end=t; }
+  const out = {start, end, total:0, clear:0, unclear:0, main:{}, sub:{}, days:{}, daysDevice:{}, subAvailable:false};
+  const weeks = Object.values(store.weeks || {});
+  weeks.forEach(w=>{
+    for(const d in (w.daysMain||{})){
+      if(d < start || d > end) continue;
+      for(const m in w.daysMain[d]){
+        const c = w.daysMain[d][m];
+        out.main[m] = (out.main[m]||0) + c;
+        out.total += c;
+        if(m === "불명확") out.unclear += c; else out.clear += c;
+        out.days[d] = (out.days[d]||0) + c;
+      }
+    }
+    for(const d in (w.daysDevice||{})){
+      if(d < start || d > end) continue;
+      out.daysDevice[d] = w.daysDevice[d];   // 날짜는 주마다 유일 → 충돌 없음
+    }
+    for(const d in (w.daysSub||{})){
+      if(d < start || d > end) continue;
+      out.subAvailable = true;
+      for(const s in w.daysSub[d]) out.sub[s] = (out.sub[s]||0) + w.daysSub[d][s];
+    }
+  });
+  // 폴백: daysSub 가 전혀 없으면(과거 데이터) 기간에 완전히 포함되는 주의 sub 합산
+  if(!out.subAvailable){
+    weeks.forEach(w=>{
+      if(w.start >= start && w.end <= end){
+        for(const s in (w.sub||{})) out.sub[s] = (out.sub[s]||0) + w.sub[s];
+      }
+    });
+  }
+  return out;
+}
+
+function renderRangeDetail(agg, store){
+  store = store || getEffectiveStore();
+  const w = agg || {total:0, main:{}, sub:{}, daysDevice:{}};
   if(dCharts.pie) dCharts.pie.destroy();
   if(dCharts.bar) dCharts.bar.destroy();
   if(dCharts.device) dCharts.device.destroy();
-  if(!w || !w.total){
+  $("dDetailTitle").textContent = "기간별 상세 조회";
+  if(!w.total){
     $("dStTotal").textContent   = "-";
     $("dStClear").textContent   = "-";
     $("dStUnclear").textContent = "-";
     $("dStRate").textContent    = "-";
-    if(!w) return;
+    if($("dLegendMain")) $("dLegendMain").innerHTML = "";
+    [["dPieBox","dPieEmpty"],["dSubBox","dSubEmpty"],["dDeviceBox","dDeviceEmpty"]].forEach(p=>{
+      if($(p[0])) $(p[0]).classList.add("hidden");
+      if($(p[1])) $(p[1]).classList.remove("hidden");
+    });
+    return;
   }
-  $("dDetailTitle").textContent = "주차별 상세 조회";
-  if(w.total){
+  $("dPieEmpty").classList.add("hidden"); $("dPieBox").classList.remove("hidden");
+  {
     $("dStTotal").textContent   = w.total.toLocaleString()+"건";
     $("dStClear").textContent   = w.clear.toLocaleString()+"건";
     $("dStUnclear").textContent = w.unclear.toLocaleString()+"건";
@@ -1601,15 +1667,24 @@ function renderWeekDetail(weekKey, store){
     `<div class="legendrow"><span class="dot" style="background:${colors[i]}"></span><span class="lname">${x[0]}</span><span class="lcnt">${x[1].toLocaleString()}건</span><span class="lpct">${total?(x[1]/total*100).toFixed(1):0}%</span></div>`).join("");
 
   // 세부의도 전체 (막대 색은 각 세부의도가 속한 대분류 색; 매핑 없으면 회색 폴백)
-  const subEntries = Object.entries(w.sub).sort((a,b)=>b[1]-a[1]);
+  // 임의 기간 합산은 일 단위 세부의도(daysSub)가 있어야 정확. 없으면(과거 데이터·부분 주) 안내문구.
+  const subEntries = Object.entries(w.sub||{}).sort((a,b)=>b[1]-a[1]);
   const subMain = (store && store.subMain) || {};
-  dCharts.bar = new Chart($("dBarSub"), {
-    type:"bar",
-    data:{labels:subEntries.map(x=>x[0]), datasets:[{data:subEntries.map(x=>x[1]), backgroundColor:subEntries.map(x=>D_MAIN_COLORS[subMain[x[0]]]||"#888fa3"), borderRadius:5}]},
-    options:{indexAxis:"y", plugins:{legend:{display:false},
-        tooltip:{callbacks:{label:(it)=> it.parsed.x.toLocaleString()+"건"}}}, maintainAspectRatio:false,
-      scales:{x:{ticks:{color:"#8b95a1"},grid:{color:"#eef1f4"}},y:{ticks:{color:"#333d4b",autoSkip:false},grid:{display:false}}}}
-  });
+  if(subEntries.length){
+    $("dSubEmpty").classList.add("hidden");
+    $("dSubBox").classList.remove("hidden");
+    dCharts.bar = new Chart($("dBarSub"), {
+      type:"bar",
+      data:{labels:subEntries.map(x=>x[0]), datasets:[{data:subEntries.map(x=>x[1]), backgroundColor:subEntries.map(x=>D_MAIN_COLORS[subMain[x[0]]]||"#888fa3"), borderRadius:5}]},
+      options:{indexAxis:"y", plugins:{legend:{display:false},
+          tooltip:{callbacks:{label:(it)=> it.parsed.x.toLocaleString()+"건"}}}, maintainAspectRatio:false,
+        scales:{x:{ticks:{color:"#8b95a1"},grid:{color:"#eef1f4"}},y:{ticks:{color:"#333d4b",autoSkip:false},grid:{display:false}}}}
+    });
+  } else {
+    $("dSubBox").classList.add("hidden");
+    $("dSubEmpty").innerHTML = "선택 기간의 일자별 세부의도 데이터가 없습니다.<br>원본을 다시 올리거나(의도 분류 기준 업데이트) 주 단위로 맞는 기간을 선택해 주세요.";
+    $("dSubEmpty").classList.remove("hidden");
+  }
 
   // 기기별 검색 비중 (주차 daysDevice 합산; 없으면 안내 문구)
   const devCounts = {};
@@ -1680,22 +1755,19 @@ function availableDays(store){
   });
   return set;
 }
-function applyWeekByDate(v){
+function applyRange(start, end){
+  if(end < start){ const t=start; start=end; end=t; }
   const store = getEffectiveStore();
-  let key = isoWeek(v).key;
-  if(!store.weeks[key]){
-    const t = new Date(v).getTime(); let best=null, bd=Infinity;
-    Object.values(store.weeks).forEach(w=>{ const c=(new Date(w.start).getTime()+new Date(w.end).getTime())/2; const d=Math.abs(c-t); if(d<bd){bd=d;best=w;} });
-    if(best){ key=best.key; }
-  }
-  if(store.weeks[key]){ SELECTED_WEEK=key; syncDatePill(store.weeks[key]); renderWeekDetail(key, store); }
+  SELECTED_RANGE = {start, end};
+  syncDatePill(start, end);
+  renderRangeDetail(aggregateRange(store, start, end), store);
 }
 const KCAL = {
   viewY:null, viewM:null, selStart:null, selEnd:null, _outside:null,
-  syncToWeek(w){ if(!w) return; const s=w.start.split("-"); this.viewY=+s[0]; this.viewM=+s[1]-1; this.selStart=w.start; this.selEnd=w.end; },
+  syncToRange(start, end){ if(!start) return; const s=start.split("-"); this.viewY=+s[0]; this.viewM=+s[1]-1; this.selStart=start; this.selEnd=end||start; },
   open(){
-    const store=getEffectiveStore(); const w=store.weeks[SELECTED_WEEK];
-    if(w){ this.syncToWeek(w); } else { const t=new Date(); this.viewY=t.getFullYear(); this.viewM=t.getMonth(); this.selStart=this.selEnd=null; }
+    if(SELECTED_RANGE && SELECTED_RANGE.start){ this.syncToRange(SELECTED_RANGE.start, SELECTED_RANGE.end); }
+    else { const t=new Date(); this.viewY=t.getFullYear(); this.viewM=t.getMonth(); this.selStart=this.selEnd=null; }
     this.render(); $("dCalPop").style.display="block";
     this._outside=(e)=>{ const wrap=$("dCalPop").parentElement; if(wrap && !wrap.contains(e.target)) this.close(); };
     setTimeout(()=>document.addEventListener("mousedown", this._outside), 0);
@@ -1704,9 +1776,15 @@ const KCAL = {
   toggle(){ $("dCalPop").style.display==="block" ? this.close() : this.open(); },
   prevMonth(){ this.viewM--; if(this.viewM<0){this.viewM=11;this.viewY--;} this.render(); },
   nextMonth(){ this.viewM++; if(this.viewM>11){this.viewM=0;this.viewY++;} this.render(); },
-  pickDay(iso){ const w=isoWeek(iso); this.selStart=w.start; this.selEnd=w.end; this.render(); },
-  goToday(){ const t=new Date(); this.viewY=t.getFullYear(); this.viewM=t.getMonth(); this.pickDay(fmtISO(t)); },
-  confirm(){ if(this.selStart) applyWeekByDate(this.selStart); this.close(); },
+  // 2-클릭 기간 선택: 첫 클릭=시작(종료 비움), 둘째 클릭=종료(이르면 swap), 양끝 차 있으면 다시 시작
+  pickDay(iso){
+    if(!this.selStart || this.selEnd){ this.selStart=iso; this.selEnd=null; }
+    else if(iso < this.selStart){ this.selEnd=this.selStart; this.selStart=iso; }
+    else { this.selEnd=iso; }
+    this.render();
+  },
+  goToday(){ const t=new Date(); this.viewY=t.getFullYear(); this.viewM=t.getMonth(); this.selStart=fmtISO(t); this.selEnd=null; this.render(); },
+  confirm(){ if(this.selStart) applyRange(this.selStart, this.selEnd||this.selStart); this.close(); },
   render(){
     const pop=$("dCalPop"); const y=this.viewY, m=this.viewM;
     const first=new Date(y,m,1); const gridStart=new Date(y,m,1-first.getDay());
