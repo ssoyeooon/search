@@ -1842,7 +1842,24 @@ function toast(msg, ms){
 
 // ===== 반영 상태 판정 (업로드 지문 ingested 기준) =====
 // LOCAL의 각 업로드(fp)가 BASE(공유 dashboard-data.json)에 들어있으면 '반영됨'으로 본다.
+// BASE가 Python 파이프라인(build_dashboard_data.py)으로 전량 재생성된 경우엔 ingested가 비어 있어
+// 지문 매칭이 불가능하다. 이때 LOCAL 주차가 BASE에 합계까지 포함돼 있으면(=이미 반영) '반영됨'으로 본다.
+// → 안 그러면 stale LOCAL이 영구 미반영으로 남아 BASE 위에 덧씌워져 이중집계된다.
+function baseIsPythonRegen(){
+  const b = BASE_STORE || {};
+  return Object.keys(b.ingested || {}).length === 0 && Object.keys(b.weeks || {}).length > 0;
+}
+// LOCAL의 모든 주차가 BASE에 존재하고 BASE 합계가 LOCAL 합계 이상이면 true(=BASE가 LOCAL을 이미 포함).
+// 합계 조건으로, BASE에 아직 없는 '추가 업로드분'은 반영으로 오인하지 않아 데이터 유실을 막는다.
+function localCoveredByBase(){
+  const lw = (loadStore().weeks) || {};
+  const keys = Object.keys(lw);
+  if(!keys.length) return false;
+  const bw = (BASE_STORE && BASE_STORE.weeks) || {};
+  return keys.every(k => bw[k] && (bw[k].total || 0) >= (lw[k].total || 0));
+}
 function pendingUploadKeys(){
+  if(baseIsPythonRegen() && localCoveredByBase()) return [];   // 전량 재생성 BASE가 LOCAL을 포함 → 반영됨
   const base = (BASE_STORE && BASE_STORE.ingested) || {};
   return Object.keys((loadStore().ingested) || {}).filter(k => !(k in base));
 }
