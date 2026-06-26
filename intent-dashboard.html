@@ -15,12 +15,12 @@
     --bg:#f2f4f6; --panel:#ffffff; --panel2:#f2f4f6; --line:#eaecef;
     --txt:#191f28; --txt2:#333d4b; --muted:#8b95a1; --accent:#3182f6; --accent2:#15c47e;
     --warn:#f5a623; --danger:#f04452;
-    --grid:#f2f4f6;
+    --grid:#f2f4f6; --lnb-width:236px;
     --shadow:0 1px 2px rgba(0,0,0,.04), 0 6px 18px rgba(17,24,39,.05);
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--txt);
-    font-family:"Pretendard","Pretendard Variable",-apple-system,"Malgun Gothic",system-ui,sans-serif;
+    font-family:"Pretendard",-apple-system,"Malgun Gothic",system-ui,sans-serif;
     font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
   header{padding:18px 32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
   h1{font-size:26px;margin:0;font-weight:800;letter-spacing:-.03em;display:flex;align-items:center;gap:9px}
@@ -52,8 +52,8 @@
     border:0;background:none;padding:0;color:#3182f6;cursor:pointer;transition:.12s}
   .iconinfo:hover{color:var(--accent)}
   .iconinfo svg{width:25px;height:25px}
-  /* 콘텐츠 영역(좌측 LNB 236px 제외) 기준 중앙 → 사이드바 절반(118px)만큼 보정 */
-  .toast{position:fixed;left:calc(50% + 118px);bottom:28px;transform:translateX(-50%) translateY(12px);
+  /* 콘텐츠 영역(좌측 LNB 제외) 기준 중앙 → 사이드바(--lnb-width) 절반만큼 보정 */
+  .toast{position:fixed;left:calc(50% + var(--lnb-width) / 2);bottom:28px;transform:translateX(-50%) translateY(12px);
     background:#1f2937;color:#fff;padding:12px 18px;border-radius:10px;font-size:14px;font-weight:600;
     box-shadow:0 8px 24px rgba(0,0,0,.18);opacity:0;pointer-events:none;transition:.22s;z-index:9999;max-width:90vw;text-align:center}
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -145,7 +145,7 @@
 
   /* ===== App shell + LNB ===== */
   .app{display:flex;min-height:100vh}
-  .lnb{width:236px;flex:0 0 236px;background:#4f46e5;display:flex;flex-direction:column;
+  .lnb{width:var(--lnb-width);flex:0 0 var(--lnb-width);background:#4f46e5;display:flex;flex-direction:column;
     padding:22px 16px;position:sticky;top:0;height:100vh;gap:6px}
   .lnb-brand{display:flex;align-items:center;gap:11px;padding:4px 8px 22px}
   .lnb-logo{width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.18);
