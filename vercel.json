@@ -1,5 +1,8 @@
 {
   "rewrites": [
-    { "source": "/report", "destination": "/intent-dashboard.html" }
+    { "source": "/report", "destination": "/index.html" }
+  ],
+  "redirects": [
+    { "source": "/intent-dashboard.html", "destination": "/", "permanent": false }
   ]
 }

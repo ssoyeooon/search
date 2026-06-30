@@ -673,7 +673,7 @@ function saveStore(store){
    저장소에 커밋된 dashboard-data.json(BASE)을 읽어 로컬 업로드분(LOCAL)과 합쳐 보여준다. */
 const DATA_FILE = "dashboard-data.json";
 // 보고용(타 부서) 모드: ?report=1 또는 /report 경로 → 대시보드만 노출 + 공유(BASE) 데이터만 표시(로컬 업로드 무시)
-// (Vercel rewrite로 /report → intent-dashboard.html 서빙 시 주소창은 /report로 유지되어 query가 비므로 경로로도 감지)
+// (Vercel rewrite로 /report → /index.html 서빙 시 주소창은 /report로 유지되어 query가 비므로 경로로도 감지)
 const REPORT_MODE = new URLSearchParams(location.search).has("report") || /(^|\/)report\/?$/.test(location.pathname);
 let BASE_STORE = {weeks:{}, ingested:{}, subMain:{}};   // 커밋된 공유 원본 (로드 시 fetch)
 function fetchBaseStore(){

@@ -8,10 +8,12 @@
 - Vercel: https://dashboard-six-lyart-89.vercel.app/ (GitHub 연동 자동 배포)
 
 ## 구성
-- `intent-dashboard.html` — 대시보드 본체(검색어 의도 분류 + 자동완성 후보/엔티티 추출)
+- `index.html` — 대시보드 본체(검색어 의도 분류 + 자동완성 후보/엔티티 추출). 루트 `/`로 바로 열림
+- `styles.css` — 디자인
+- `dashboard.js` — 분류 로직 + 사전 데이터(@@DICT@@: `의도분류_사전.xlsx`에서 자동 생성)
+- `ui-events.js` — UI 이벤트 바인딩(엔티티 로드 이후 실행)
 - `entity-logic.js` — 엔티티 추출 엔진
 - `dashboard-data.json` — (선택) 공유 누적 데이터. 없으면 빈 상태로 시작.
-- `index.html` — 루트 접속 시 대시보드로 이동
 
 ## 데이터 공유 방법 (정적 호스팅)
 1. 대시보드 > **검색어 의도 분류** 메뉴에서 엑셀/CSV 업로드 → 주차별로 자동 누적
