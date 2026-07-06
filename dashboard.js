@@ -199,9 +199,9 @@ const QUERY_CANDS = ["Query","query","질의어","검색어","keyword","Keyword"
 const DATE_CANDS  = ["Search Time","search time","날짜","검색일시","date","Date","datetime","시간"];
 const DEVICE_CANDS = ["Device Type","device type","device","디바이스","기기","기기유형","단말"];
 // 기기 유형 정규화(라벨) 및 고정 색
-const DEVICE_LABELS = {pc:"PC", desktop:"PC", mobile:"모바일", tablet:"태블릿", unknown:"알 수 없음"};
+const DEVICE_LABELS = {pc:"PC", desktop:"PC", mobile:"모바일", tablet:"태블릿", bot:"봇", unknown:"알 수 없음"};
 // 대분류 분포(PALETTE: 파랑·초록·주황·빨강…)와 겹치지 않도록 보라·핑크 계열로 구분
-const DEVICE_COLORS = {"PC":"#7048e8","모바일":"#e64980","태블릿":"#ae3ec9","알 수 없음":"#868e96"};
+const DEVICE_COLORS = {"PC":"#7048e8","모바일":"#e64980","태블릿":"#ae3ec9","봇":"#15aabf","알 수 없음":"#868e96"};
 function deviceLabel(v){ const s=String(v==null?"":v).trim(); if(!s) return ""; const k=s.toLowerCase(); return DEVICE_LABELS[k] || s; }
 function deviceColor(lbl){ return DEVICE_COLORS[lbl] || "#b0b8c1"; }
 function pickCol(cols, cands){
