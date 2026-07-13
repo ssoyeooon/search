@@ -394,15 +394,25 @@ function finish(){
     $("results").classList.remove("hidden");
     $("btnCsv").disabled = false;
     $("btnXlsx").disabled = false;
-    const res = archiveCurrentResults(CUR_FILE);   // 대시보드에 주차별 누적(합산)
+    if($("btnApplyDash")) $("btnApplyDash").disabled = false;   // 업로드 완료 → '대시보드 반영' 가능
     $("progWrap").classList.add("hidden");
-    if(res && res.dup){
-      $("progTxt").classList.remove("hidden");
-      $("progTxt").textContent = "이미 누적된 파일입니다 · 이중 집계를 막기 위해 대시보드 저장을 건너뛰었습니다.";
-    } else {
-      $("progTxt").classList.add("hidden");
-    }
+    $("progTxt").classList.add("hidden");
   }, 30);
+}
+
+// 업로드한 파일을 사용자가 명시적으로 눌렀을 때만 대시보드에 반영(누적)한다.
+function applyToDashboard(){
+  if(!ROWS || !ROWS.length){ toast("먼저 '파일 업로드'에서 원본을 올려 주세요."); return; }
+  const res = archiveCurrentResults(CUR_FILE);   // 대시보드에 주차별 누적(합산)
+  if(res && res.dup){
+    toast("이미 대시보드에 반영된 파일입니다 · 이중 집계를 막기 위해 건너뛰었습니다.", 4000);
+  } else if(res && res.n){
+    if($("btnApplyDash")) $("btnApplyDash").disabled = true;   // 반영 완료 → 중복 클릭 방지(새 업로드 시 finish에서 재활성화)
+    renderDashboard();
+    toast(res.n + "개 주차를 대시보드에 반영했어요.", 4000);
+  } else {
+    toast("반영할 데이터가 없습니다.");
+  }
 }
 
 function countBy(arr, key){
@@ -1314,7 +1324,7 @@ function resetAllData(){
 }
 if($("btnDataExport")) $("btnDataExport").addEventListener("click", exportSharedData);
 if($("btnDataReset"))  $("btnDataReset").addEventListener("click", resetAllData);
-if($("btnRebuild"))       $("btnRebuild").addEventListener("click", startRebuild);
+if($("btnApplyDash"))  $("btnApplyDash").addEventListener("click", applyToDashboard);
 if($("btnRebuildCancel")) $("btnRebuildCancel").addEventListener("click", cancelRebuild);
 
 // 사용법 안내 모달

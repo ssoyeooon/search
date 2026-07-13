@@ -36,7 +36,7 @@
   .btn:disabled{opacity:.4;cursor:not-allowed;background:var(--accent)}
   .btn.ghost:disabled{background:var(--panel)}
   #btnCsv,#btnXlsx{border:1.5px solid #3182f6;color:#3182f6}
-  #btnDataReset,#btnRebuild{border:1.5px solid #3182f6;color:#3182f6}
+  #btnDataReset{border:1.5px solid #3182f6;color:#3182f6}
   .iconinfo{display:inline-flex;align-items:center;justify-content:center;width:25px;height:25px;
     border:0;background:none;padding:0;color:#3182f6;cursor:pointer;transition:.12s}
   .iconinfo:hover{color:var(--accent)}
