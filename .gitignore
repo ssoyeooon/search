@@ -5,6 +5,10 @@
 질의어.xlsx
 *월 질의어.*
 
+# 질의어 원문이 담긴 DB 적재용 산출물 — Supabase(인증 뒤)로만 올라가고 저장소엔 절대 안 올림.
+# 이 저장소는 PUBLIC이고 GitHub Pages로 서빙된다. 확장자를 넓게 막아둔다.
+queries/
+
 # 브라우저 "다른 이름으로 저장" 스냅샷 폴더
 intent-dashboard_files/
 

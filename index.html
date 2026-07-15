@@ -8,7 +8,9 @@
 <link rel="preload" href="fonts/PretendardVariable.woff2" as="font" type="font/woff2" crossorigin>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" integrity="sha384-9nhczxUqK87bcKHh20fSQcTGD4qq5GhayNYSYWqwBkINBhOfQLg/P5HG5lF1urn4" crossorigin="anonymous"></script>
-<link rel="stylesheet" href="styles.css?v=20260630">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js" integrity="sha384-0w2KAL2YHP6wKOkUDzkCDGgVvfmHnj02DHeQ6XcHOgTfFsGyonKOpShMH1x6nk9o" crossorigin="anonymous"></script>
+<script src="supabase-config.js?v=20260715"></script>
+<link rel="stylesheet" href="styles.css?v=20260715">
 </head>
 <body style="">
 <div class="app">
@@ -20,7 +22,14 @@
       <button class="lnb-item active" id="navDash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg><span>대시보드</span></button>
       <button class="lnb-item" id="navIntent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5Z"></path><path d="m2 17 10 5 10-5"></path><path d="m2 12 10 5 10-5"></path></svg><span>검색어 의도 분류</span></button>
       <button class="lnb-item" id="navAuto" data-comment-anchor="904fd6a7ec-button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2L12 3Z"></path><path d="M5 4v3M3.5 5.5h3"></path></svg><span>자동 완성 후보 추출</span></button>
+      <button class="lnb-item" id="navData"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"></ellipse><path d="M4 5v6c0 1.66 3.58 3 8 3s8-1.34 8-3V5"></path><path d="M4 11v6c0 1.66 3.58 3 8 3s8-1.34 8-3v-6"></path></svg><span>데이터 조회</span></button>
     </nav>
+    <div class="lnb-foot">
+      <div id="authBox" class="authbox hidden">
+        <span id="authWho" class="authwho"></span>
+        <button type="button" id="btnLogout" class="btn ghost sm">로그아웃</button>
+      </div>
+    </div>
   </aside>
   <div class="content" style="font-weight: 400;">
     <div class="topbar" data-comment-anchor="14b38765a4-div">
@@ -116,6 +125,82 @@
     </div>
   </div>
   </div><!-- /#viewUpload -->
+
+  <div id="viewData" class="hidden">
+    <!-- 미설정 안내: supabase-config.js 가 비어 있을 때만 -->
+    <div id="dqSetup" class="card hidden">
+      <p class="sectitle">데이터 조회 — 설정 필요</p>
+      <p class="muted" style="margin:0 0 8px">
+        Supabase 접속 정보가 없습니다. <code>supabase-config.js</code> 에 프로젝트 URL 과
+        anon 키를 넣어주세요. 대시보드의 나머지 기능은 그대로 동작합니다.
+      </p>
+    </div>
+
+    <!-- 로그인 게이트 -->
+    <div id="dqLogin" class="card hidden" style="max-width:380px">
+      <p class="sectitle">사내 로그인</p>
+      <p class="muted" style="margin:0 0 14px">
+        검색어 원문은 사내 구성원만 조회할 수 있습니다.
+      </p>
+      <form id="dqLoginForm" autocomplete="on">
+        <label class="lbl" for="dqEmp">사번</label>
+        <input type="text" id="dqEmp" inputmode="numeric" autocomplete="username"
+               placeholder="20220532" style="width:100%;margin-bottom:10px">
+        <label class="lbl" for="dqPw">비밀번호</label>
+        <input type="password" id="dqPw" autocomplete="current-password"
+               style="width:100%;margin-bottom:14px">
+        <button type="submit" class="btn" id="dqLoginBtn" style="width:100%">로그인</button>
+        <p id="dqLoginErr" class="hidden" style="color:#dc2626;font-size:13px;margin:10px 0 0"></p>
+      </form>
+    </div>
+
+    <!-- 조회 본문 -->
+    <div id="dqMain" class="hidden">
+      <div class="card">
+        <p class="sectitle">검색어 의도 분류 DB</p>
+        <div class="controls">
+          <input type="text" id="dqSearch" placeholder="질의어 검색" style="flex:1;min-width:180px">
+          <select id="dqFrom"><option value="">시작 월</option></select>
+          <select id="dqTo"><option value="">종료 월</option></select>
+          <select id="dqMainF"><option value="">전체 대분류</option></select>
+          <select id="dqSubF"><option value="">전체 세부의도</option></select>
+          <button class="btn ghost" id="dqReset" type="button">필터 초기화</button>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
+          <span class="muted" id="dqCount" style="font-weight:600"></span>
+          <div style="display:flex;gap:8px">
+            <button class="btn ghost" id="dqCsv" disabled>CSV 내보내기</button>
+            <button class="btn ghost" id="dqXlsx" disabled>XLSX 내보내기</button>
+          </div>
+        </div>
+        <div class="tablewrap">
+          <table>
+            <thead><tr>
+              <th style="width:56px">No.</th>
+              <th class="dq-sort" data-sort="query">질의어</th>
+              <th style="width:150px">대분류</th>
+              <th style="width:150px">세부의도</th>
+              <th class="dq-sort" data-sort="n" style="width:96px">검색 건수</th>
+              <th style="width:120px">주 기기</th>
+              <th style="width:108px">최초 등장</th>
+              <th class="dq-sort" data-sort="last" style="width:108px">최종 등장</th>
+            </tr></thead>
+            <tbody id="dqBody"></tbody>
+          </table>
+        </div>
+        <div class="pager">
+          <button id="dqPrev">이전</button>
+          <span id="dqPageInfo"></span>
+          <button id="dqNext">다음</button>
+          <select id="dqSize" style="margin-left:10px">
+            <option value="50">50개씩</option>
+            <option value="100">100개씩</option>
+            <option value="200">200개씩</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div><!-- /#viewData -->
 
   <div id="viewDashboard" class="">
 

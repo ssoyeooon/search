@@ -79,6 +79,14 @@
   th{color:var(--muted);font-weight:600;position:sticky;top:0;background:var(--panel2);border-bottom:1px solid var(--line)}
   tbody tr:hover{background:#fafbfc}
   .tablewrap{max-height:520px;overflow:auto;border:1px solid var(--line);border-radius:14px}
+  /* 정렬 가능한 헤더 (데이터 조회) */
+  th.dq-sort{cursor:pointer;user-select:none;white-space:nowrap}
+  th.dq-sort:hover{color:var(--txt2)}
+  th.dq-sort::after{content:"";opacity:.35;margin-left:5px}
+  th.dq-sort[data-dir="desc"]::after{content:"▼";opacity:.9}
+  th.dq-sort[data-dir="asc"]::after{content:"▲";opacity:.9}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  th.num{text-align:right}
   .tag{display:inline-block;padding:3px 10px;border-radius:99px;font-size:11.5px;font-weight:600;white-space:nowrap}
   .bar{height:9px;background:var(--accent);border-radius:99px;display:inline-block;vertical-align:middle}
   .controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
@@ -134,7 +142,7 @@
 
   /* ===== App shell + LNB ===== */
   .app{display:flex;min-height:100vh}
-  .lnb{width:var(--lnb-width);flex:0 0 var(--lnb-width);background:#4f46e5;display:flex;flex-direction:column;
+  .lnb{width:var(--lnb-width);flex:0 0 var(--lnb-width);background:#172554;display:flex;flex-direction:column;
     padding:22px 16px;position:sticky;top:0;height:100vh;gap:6px}
   .lnb-brand{display:flex;align-items:center;gap:11px;padding:4px 8px 22px}
   .lnb-logo{width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.18);
@@ -147,6 +155,12 @@
   .lnb-item svg{width:20px;height:20px;flex:0 0 auto}
   .lnb-item:hover{background:rgba(255,255,255,.10);color:#fff}
   .lnb-item.active{background:rgba(255,255,255,.18);color:#fff}
+  /* 로그인 상태 박스: LNB 맨 아래로 밀어 붙인다 */
+  .lnb-foot{margin-top:auto}
+  .authbox{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    padding:12px 4px 0;border-top:1px solid rgba(255,255,255,.16)}
+  .authwho{color:rgba(255,255,255,.82);font-size:13px;font-weight:600;letter-spacing:-.01em}
+  .btn.sm{padding:5px 10px;font-size:12px}
   .content{flex:1;min-width:0;display:flex;flex-direction:column}
   .topbar{display:flex;align-items:center;gap:14px;padding:24px 32px 4px}
   .topbar h1{font-size:24px;font-weight:800;letter-spacing:-.03em;margin:0}

@@ -700,7 +700,7 @@ function mergeStores(a, b){
     if(!s) return;
     for(const k in (s.weeks||{})){
       const g = s.weeks[k];
-      if(!out.weeks[k]){ out.weeks[k] = {key:g.key, start:g.start, end:g.end, total:0, clear:0, unclear:0, main:{}, sub:{}, days:{}, daysMain:{}, daysDevice:{}}; }
+      if(!out.weeks[k]){ out.weeks[k] = {key:g.key, start:g.start, end:g.end, total:0, clear:0, unclear:0, main:{}, sub:{}, days:{}, daysMain:{}, daysSub:{}, daysDevice:{}}; }
       mergeWeekInto(out.weeks[k], g);
     }
     for(const fp in (s.ingested||{})) out.ingested[fp] = s.ingested[fp];
@@ -822,13 +822,16 @@ function mergeWeekInto(dst, g){
 const VIEWS = {
   dashboard: {el:"viewDashboard",    nav:"navDash",   title:"대시보드",          exp:false},
   intent:    {el:"viewUpload",       nav:"navIntent", title:"검색어 의도 분류",  exp:true},
-  auto:      {el:"viewAutocomplete", nav:"navAuto",   title:"자동 완성 후보 추출",  exp:false}
+  auto:      {el:"viewAutocomplete", nav:"navAuto",   title:"자동 완성 후보 추출",  exp:false},
+  data:      {el:"viewData",         nav:"navData",   title:"데이터 조회",       exp:false}
 };
 // 보고용 모드: 대시보드 외 메뉴와 데이터 관리 UI를 모두 숨기고 대시보드에 고정한다.
 function applyReportMode(){
   if(!REPORT_MODE) return;
   // 좌측 메뉴: 대시보드만 남기고 나머지 숨김
-  ["navIntent","navAuto"].forEach(id=>{ const e=$(id); if(e) e.style.display="none"; });
+  // navData(데이터 조회)도 숨긴다 — 보고용은 공유용 차트 화면이고, 질의어 원문은 사내 전용.
+  ["navIntent","navAuto","navData"].forEach(id=>{ const e=$(id); if(e) e.style.display="none"; });
+  const ab=$("authBox"); if(ab) ab.classList.add("hidden");
   // 데이터 관리 바(내보내기·전체 초기화·안내) 숨김 — 보고용은 조회 전용
   const bar=$("dDataBar"); if(bar) bar.style.display="none";
   document.body.classList.add("report-mode");
@@ -845,6 +848,7 @@ function showView(name){
   $("menuTitle").textContent = cur.title;
   // exportBtns는 분류 결과 영역 안에 있어 해당 화면과 함께 표시/숨김됨 (별도 토글 불필요)
   if(name === "dashboard") renderDashboard();
+  if(name === "data") dqEnter();
 }
 
 // 데이터 유무에 따라 차트 영역(차트 박스 ↔ 안내 문구)을 토글
@@ -1100,6 +1104,7 @@ function renderRangeDetail(agg, store){
 $("navDash").addEventListener("click",   ()=> showView("dashboard"));
 $("navIntent").addEventListener("click", ()=> showView("intent"));
 $("navAuto").addEventListener("click",   ()=> showView("auto"));
+$("navData").addEventListener("click",   ()=> showView("data"));
 const KMON = {
   viewY:null, months:[], _outside:null,
   open(){
@@ -1339,6 +1344,282 @@ if($("btnRebuildCancel")) $("btnRebuildCancel").addEventListener("click", cancel
 })();
 
 if(!REPORT_MODE) checkStorageEnv();
+/* ===================================================================
+   데이터 조회 (검색어 의도 분류 DB)
+
+   질의어 원문은 이 저장소에 두지 않는다 — 저장소가 PUBLIC 이고 GitHub Pages 로
+   서빙되기 때문. 원문은 Supabase 에만 있고 RLS(authenticated SELECT)로 막혀 있다.
+   여기 있는 anon 키는 공개돼도 되는 키다(브라우저로 나가라고 만든 키). 실제 통제는
+   서버의 RLS 가 하므로, 비로그인 상태에서 이 코드를 아무리 불러도 0행이 나온다.
+
+   필터/집계/정렬/페이징은 전부 search_intent_queries() RPC 안에서 끝난다.
+   전량을 브라우저로 내려받아 걸러내는 방식이 아니므로, 데이터가 늘어도 화면은 안 느려지고
+   PostgREST 기본 1000행 상한에 조용히 잘릴 일도 없다.
+   =================================================================== */
+const DQ = {
+  sb:null, session:null,
+  rows:[], total:0, page:0, size:50,
+  sort:"n", desc:true,
+  facets:null,
+  seq:0,            // 응답 순서 뒤집힘 방지(늦게 온 옛 요청이 새 결과를 덮어쓰지 않게)
+  booted:false
+};
+const DQ_DEVS = [["dev_pc","PC"],["dev_mobile","모바일"],["dev_tablet","태블릿"],
+                 ["dev_bot","봇"],["dev_unknown","알 수 없음"]];
+
+function dqConfigured(){
+  const c = window.SUPABASE_CONFIG || {};
+  return !!(c.url && c.anonKey);
+}
+function dqClient(){
+  if(DQ.sb) return DQ.sb;
+  const c = window.SUPABASE_CONFIG;
+  DQ.sb = window.supabase.createClient(c.url, c.anonKey, {
+    auth:{ persistSession:true, autoRefreshToken:true, storageKey:"intent-dq-auth" }
+  });
+  return DQ.sb;
+}
+function dqShow(which){   // "setup" | "login" | "main"
+  $("dqSetup").classList.toggle("hidden", which !== "setup");
+  $("dqLogin").classList.toggle("hidden", which !== "login");
+  $("dqMain").classList.toggle("hidden", which !== "main");
+}
+function dqAuthBox(){
+  const box = $("authBox");
+  if(!box || REPORT_MODE) return;
+  if(DQ.session){
+    const email = DQ.session.user.email || "";
+    $("authWho").textContent = email.split("@")[0];   // 사번만 노출
+    box.classList.remove("hidden");
+  } else {
+    box.classList.add("hidden");
+  }
+}
+
+// 조회 화면 진입 — 설정 여부 -> 세션 여부 순으로 게이트
+async function dqEnter(){
+  if(!dqConfigured()){ dqShow("setup"); return; }
+  const sb = dqClient();
+  const { data } = await sb.auth.getSession();
+  DQ.session = data.session || null;
+  dqAuthBox();
+  if(!DQ.session){ dqShow("login"); $("dqEmp").focus(); return; }
+  dqShow("main");
+  if(!DQ.booted){ DQ.booted = true; await dqLoadFacets(); }
+  dqQuery();
+}
+
+async function dqLogin(e){
+  e.preventDefault();
+  const emp = $("dqEmp").value.trim();
+  const pw  = $("dqPw").value;
+  const err = $("dqLoginErr");
+  err.classList.add("hidden");
+  if(!emp || !pw){ err.textContent="사번과 비밀번호를 입력해주세요."; err.classList.remove("hidden"); return; }
+  const btn = $("dqLoginBtn");
+  btn.disabled = true; btn.textContent = "로그인 중...";
+  // 사번 -> 이메일 파사드. 화면에는 사번만 쓰고 이메일은 노출하지 않는다.
+  const email = emp.includes("@") ? emp : emp + "@" + (window.SUPABASE_CONFIG.emailDomain || "");
+  const { data, error } = await dqClient().auth.signInWithPassword({ email, password: pw });
+  btn.disabled = false; btn.textContent = "로그인";
+  if(error){
+    err.textContent = "로그인에 실패했습니다. 사번과 비밀번호를 확인해주세요.";
+    err.classList.remove("hidden");
+    return;
+  }
+  $("dqPw").value = "";
+  DQ.session = data.session;
+  dqAuthBox();
+  dqShow("main");
+  if(!DQ.booted){ DQ.booted = true; await dqLoadFacets(); }
+  dqQuery();
+}
+
+async function dqLogout(){
+  if(DQ.sb) await DQ.sb.auth.signOut();
+  DQ.session = null; DQ.booted = false; DQ.facets = null;
+  DQ.rows = []; DQ.total = 0; DQ.page = 0;
+  dqAuthBox();
+  if(!$("viewData").classList.contains("hidden")) dqShow("login");
+  toast("로그아웃되었습니다.");
+}
+
+// 필터 드롭다운 채우기. 라벨/건수만 오고 질의어 원문은 오지 않는다.
+async function dqLoadFacets(){
+  const { data, error } = await dqClient().rpc("intent_queries_facets");
+  if(error){ dqErr(error); return; }
+  DQ.facets = data;
+  const months = data.months || [];
+  const opt = (v,t)=>`<option value="${escapeHtml(v)}">${escapeHtml(t)}</option>`;
+  $("dqFrom").innerHTML = opt("","시작 월") + months.map(m=>opt(m,m)).join("");
+  $("dqTo").innerHTML   = opt("","종료 월")   + months.map(m=>opt(m,m)).join("");
+  $("dqMainF").innerHTML = opt("","전체 대분류") + (data.mains||[]).map(m=>opt(m,m)).join("");
+  dqFillSubs();
+}
+// 세부의도는 선택된 대분류에 속한 것만 보여준다(subs = [[세부의도, 대분류], ...]).
+function dqFillSubs(){
+  const main = $("dqMainF").value;
+  const pairs = (DQ.facets && DQ.facets.subs) || [];
+  const list = pairs.filter(p => !main || p[1] === main).map(p => p[0]);
+  const cur = $("dqSubF").value;
+  const opt = (v,t)=>`<option value="${escapeHtml(v)}">${escapeHtml(t)}</option>`;
+  $("dqSubF").innerHTML = opt("","전체 세부의도") + list.map(s=>opt(s,s)).join("");
+  if(list.includes(cur)) $("dqSubF").value = cur;
+}
+
+function dqParams(limit, offset){
+  const from = $("dqFrom").value, to = $("dqTo").value;
+  return {
+    p_month_from: from || null,
+    p_month_to:   to   || null,
+    p_search: $("dqSearch").value.trim() || null,
+    p_main:   $("dqMainF").value || null,
+    p_sub:    $("dqSubF").value  || null,
+    p_sort:   DQ.sort,
+    p_desc:   DQ.desc,
+    p_limit:  limit,
+    p_offset: offset
+  };
+}
+function dqErr(error){
+  console.error("[데이터 조회]", error);
+  $("dqBody").innerHTML = `<tr><td colspan="8" class="muted" style="padding:22px">조회에 실패했습니다. ${escapeHtml(error.message||"")}</td></tr>`;
+  $("dqCount").textContent = "";
+}
+
+async function dqQuery(){
+  if(!DQ.session) return;
+  const my = ++DQ.seq;
+  $("dqCount").textContent = "조회 중...";
+  const { data, error } = await dqClient().rpc("search_intent_queries",
+                                               dqParams(DQ.size, DQ.page * DQ.size));
+  if(my !== DQ.seq) return;              // 더 새로운 요청이 이미 나갔으면 이 결과는 버린다
+  if(error){ dqErr(error); return; }
+  DQ.rows = data || [];
+  DQ.total = DQ.rows.length ? Number(DQ.rows[0].total_count) : 0;
+  dqRender();
+}
+
+// 주 기기 = 기기별 건수 중 최다. 여러 달을 합친 뒤 결정해야 맞다(월별로 우세 기기가 다를 수 있음).
+function dqTopDevice(r){
+  let best = null, sum = 0;
+  for(const [col,label] of DQ_DEVS){
+    const v = Number(r[col]) || 0;
+    sum += v;
+    if(!best || v > best.v) best = {v, label};
+  }
+  if(!best || !best.v || !sum) return "-";
+  return best.label + " " + Math.round(best.v / sum * 100) + "%";
+}
+
+function dqRender(){
+  const tb = $("dqBody");
+  if(!DQ.rows.length){
+    tb.innerHTML = `<tr><td colspan="8" class="muted" style="padding:22px">조건에 맞는 질의어가 없습니다.</td></tr>`;
+    $("dqCount").textContent = "0건";
+    $("dqPageInfo").textContent = "0 / 0";
+    $("dqPrev").disabled = $("dqNext").disabled = true;
+    $("dqCsv").disabled = $("dqXlsx").disabled = true;
+    return;
+  }
+  const base = DQ.page * DQ.size;
+  tb.innerHTML = DQ.rows.map((r,i)=>`<tr>
+    <td class="num">${base+i+1}</td>
+    <td>${escapeHtml(r.query)}</td>
+    <td>${escapeHtml(r.main_intent)}</td>
+    <td>${escapeHtml(r.sub_intent)}</td>
+    <td class="num">${Number(r.n).toLocaleString()}</td>
+    <td>${escapeHtml(dqTopDevice(r))}</td>
+    <td>${escapeHtml(r.first_seen||"")}</td>
+    <td>${escapeHtml(r.last_seen||"")}</td>
+  </tr>`).join("");
+
+  const pages = Math.max(1, Math.ceil(DQ.total / DQ.size));
+  $("dqCount").textContent = `질의어 ${DQ.total.toLocaleString()}건`;
+  $("dqPageInfo").textContent = `${DQ.page+1} / ${pages}`;
+  $("dqPrev").disabled = DQ.page <= 0;
+  $("dqNext").disabled = DQ.page >= pages-1;
+  $("dqCsv").disabled = $("dqXlsx").disabled = false;
+  document.querySelectorAll("#viewData th.dq-sort").forEach(th=>{
+    if(th.dataset.sort === DQ.sort) th.dataset.dir = DQ.desc ? "desc" : "asc";
+    else th.removeAttribute("data-dir");
+  });
+}
+
+const DQ_HEAD = ["질의어","대분류","세부의도","검색 건수","주 기기","최초 등장","최종 등장"];
+const dqRow = r => [r.query, r.main_intent, r.sub_intent, Number(r.n),
+                    dqTopDevice(r), r.first_seen, r.last_seen];
+
+// 내보내기는 '현재 페이지'가 아니라 '필터에 걸린 전체'를 담는다.
+// RPC 상한(500)에 맞춰 나눠 받는다.
+async function dqFetchAll(){
+  const CHUNK = 500, out = [];
+  const cap = Math.min(DQ.total, 100000);
+  for(let off = 0; off < cap; off += CHUNK){
+    const { data, error } = await dqClient().rpc("search_intent_queries", dqParams(CHUNK, off));
+    if(error) throw error;
+    if(!data || !data.length) break;
+    out.push(...data);
+  }
+  return out;
+}
+async function dqExport(kind){
+  const btn = kind === "csv" ? $("dqCsv") : $("dqXlsx");
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = "내보내는 중...";
+  try{
+    const rows = await dqFetchAll();
+    const aoa = [DQ_HEAD, ...rows.map(dqRow)];
+    if(kind === "csv"){
+      const csv = aoa.map(r => r.map(v => {
+        const s = String(v ?? "");
+        return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+      }).join(",")).join("\n");
+      const blob = new Blob(["﻿"+csv], {type:"text/csv;charset=utf-8;"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "의도분류_질의어.csv";
+      a.click(); URL.revokeObjectURL(a.href);
+    } else {
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "질의어");
+      XLSX.writeFile(wb, "의도분류_질의어.xlsx");
+    }
+    toast(`${rows.length.toLocaleString()}건을 내보냈습니다.`);
+  }catch(e){
+    console.error(e);
+    toast("내보내기에 실패했습니다.");
+  }finally{
+    btn.disabled = false; btn.textContent = label;
+  }
+}
+
+// --- 배선 ---
+let dqTimer = null;
+const dqReload = ()=>{ DQ.page = 0; dqQuery(); };
+$("dqLoginForm").addEventListener("submit", dqLogin);
+$("btnLogout").addEventListener("click", dqLogout);
+$("dqSearch").addEventListener("input", ()=>{ clearTimeout(dqTimer); dqTimer = setTimeout(dqReload, 300); });
+["dqFrom","dqTo","dqSubF"].forEach(id => $(id).addEventListener("change", dqReload));
+$("dqMainF").addEventListener("change", ()=>{ $("dqSubF").value=""; dqFillSubs(); dqReload(); });
+$("dqReset").addEventListener("click", ()=>{
+  ["dqSearch","dqFrom","dqTo","dqMainF","dqSubF"].forEach(id => $(id).value = "");
+  dqFillSubs(); DQ.sort="n"; DQ.desc=true; dqReload();
+});
+$("dqSize").addEventListener("change", ()=>{ DQ.size = Number($("dqSize").value)||50; dqReload(); });
+$("dqPrev").addEventListener("click", ()=>{ if(DQ.page>0){ DQ.page--; dqQuery(); } });
+$("dqNext").addEventListener("click", ()=>{ DQ.page++; dqQuery(); });
+document.querySelectorAll("#viewData th.dq-sort").forEach(th=>{
+  th.addEventListener("click", ()=>{
+    const k = th.dataset.sort;
+    if(DQ.sort === k) DQ.desc = !DQ.desc;
+    else { DQ.sort = k; DQ.desc = true; }
+    dqReload();
+  });
+});
+$("dqCsv").addEventListener("click", ()=> dqExport("csv"));
+$("dqXlsx").addEventListener("click", ()=> dqExport("xlsx"));
+
 applyReportMode();       // 보고용(?report=1)이면 대시보드만 노출 + 데이터 관리 UI 숨김
 showView("dashboard");   // 대시보드를 홈으로 (먼저 로컬 기준 렌더)
 // 공유 원본(dashboard-data.json)을 불러온 뒤 대시보드를 다시 렌더 (BASE + LOCAL)
