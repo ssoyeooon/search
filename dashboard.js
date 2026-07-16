@@ -1418,7 +1418,8 @@ async function dqLogin(e){
   if(!emp || !pw){ err.textContent="사번과 비밀번호를 입력해주세요."; err.classList.remove("hidden"); return; }
   const btn = $("dqLoginBtn");
   btn.disabled = true; btn.textContent = "로그인 중...";
-  // 사번 -> 이메일 파사드. 화면에는 사번만 쓰고 이메일은 노출하지 않는다.
+  // 아이디 -> 이메일 파사드. 화면에는 아이디만 쓰고 이메일은 노출하지 않는다.
+  // '@'가 있으면 전체 이메일로 보고 그대로 쓴다(도메인이 다른 계정 대응).
   const email = emp.includes("@") ? emp : emp + "@" + (window.SUPABASE_CONFIG.emailDomain || "");
   const { data, error } = await dqClient().auth.signInWithPassword({ email, password: pw });
   btn.disabled = false; btn.textContent = "로그인";

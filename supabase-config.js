@@ -12,7 +12,7 @@ window.SUPABASE_CONFIG = {
   url: "https://tyqkzxpxpasgqvyujqsi.supabase.co",
   anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR5cWt6eHB4cGFzZ3F2eXVqcXNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwOTM3NTUsImV4cCI6MjA5OTY2OTc1NX0.vLBkWv7q-VbShj6R5YChtq3-I3HTRiWivuyOAwV65XY",
 
-  // 사번 로그인 파사드: 20220532 -> 20220532@megastudyedu.com 로 변환해 로그인한다.
-  // 화면에는 사번만 보이고 이메일은 노출하지 않는다.
-  emailDomain: "megastudyedu.com",
+  // 아이디 로그인 파사드: sy22 -> sy22@megastudy.net 으로 변환해 로그인한다.
+  // '@'를 포함해 전체 이메일을 입력하면 그대로 쓴다(도메인이 다른 계정 대응).
+  emailDomain: "megastudy.net",
 };
