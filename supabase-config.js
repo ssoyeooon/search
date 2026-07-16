@@ -9,8 +9,8 @@
 //
 // 값이 비어 있으면 조회 메뉴는 '미설정' 안내만 띄우고, 나머지 대시보드는 그대로 동작한다.
 window.SUPABASE_CONFIG = {
-  url: "",          // 예: https://abcdefgh.supabase.co
-  anonKey: "",      // 예: eyJhbGciOi...  (Project Settings > API > anon public)
+  url: "https://tyqkzxpxpasgqvyujqsi.supabase.co",
+  anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR5cWt6eHB4cGFzZ3F2eXVqcXNpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwOTM3NTUsImV4cCI6MjA5OTY2OTc1NX0.vLBkWv7q-VbShj6R5YChtq3-I3HTRiWivuyOAwV65XY",
 
   // 사번 로그인 파사드: 20220532 -> 20220532@megastudyedu.com 로 변환해 로그인한다.
   // 화면에는 사번만 보이고 이메일은 노출하지 않는다.

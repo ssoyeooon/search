@@ -26,10 +26,16 @@ Supabase 에만 둔다. 설정 전에는 조회 메뉴가 '설정 필요' 안내
 
 ## 2. 스키마 생성
 
-Supabase 대시보드 → **SQL Editor** → `migrations/0001_intent_queries.sql` 내용을
-통째로 붙여넣고 실행.
+1. 에디터에서 `dashboard/supabase/migrations/0001_intent_queries.sql` **파일을 연다**
+2. 전체 선택(Ctrl+A) → 복사
+3. Supabase 대시보드 → **SQL Editor** → **New query** → 붙여넣기 → **Run**
+
+> 붙여넣을 것은 파일의 **내용**이다. 파일 경로를 붙여넣으면
+> `syntax error at or near "migrations"` 가 난다.
+> `create extension ...` 으로 시작해 `grant execute on function ...` 으로 끝나면 맞다.
 
 테이블 + trigram 인덱스 + RLS + 조회 RPC 두 개가 만들어진다.
+성공하면 Table Editor 에 `intent_queries` 가 보인다(행 0개).
 
 ## 3. 데이터 적재
 
@@ -41,22 +47,24 @@ Supabase 대시보드 → **SQL Editor** → `migrations/0001_intent_queries.sql
 
 → `dashboard/queries/intent_queries.csv` 생성 (검색어 원문 포함, `.gitignore` 로 커밋 차단됨)
 
-Supabase 대시보드의 CSV Import 는 62만 행에서 느리고 잘 끊긴다. `psql` 로 넣는다.
-연결 문자열은 Project Settings → Database → Connection string → URI 에서 복사.
+Supabase 대시보드의 CSV Import 는 62만 행에서 느리고 잘 끊긴다. `load_csv.py` 로 넣는다
+(psql 없이 psycopg2 로 COPY 를 쓴다 — psql 의 `\copy` 와 같은 경로).
 
-```bash
-psql "postgresql://postgres.[ref]:[비밀번호]@aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres" \
-  -c "\copy public.intent_queries (month, query, main_intent, sub_intent, n, first_seen, last_seen, dev_pc, dev_mobile, dev_tablet, dev_bot, dev_unknown) FROM 'queries/intent_queries.csv' WITH (FORMAT csv, HEADER true)"
+검색 데이터 분석 폴더에서:
+
+```
+.venv\Scripts\python.exe dashboard\supabase\load_csv.py
 ```
 
-> 비밀번호를 셸 히스토리에 남기지 않으려면 `PGPASSWORD` 환경변수를 쓰거나
-> `~/.pgpass` 를 사용할 것.
+접속 문자열을 물어보면 Supabase 대시보드 → Project Settings → Database →
+Connection string → **URI** 를 복사해 붙여넣는다. `[YOUR-PASSWORD]` 부분은 1단계에서
+정한 실제 DB 비밀번호로 바꿔야 한다.
 
-재적재(사전이 바뀌어 재분류한 경우)는 비우고 다시 넣는다:
-
-```sql
-truncate public.intent_queries;
-```
+- 입력한 문자열은 화면에 보이지 않고, 파일·셸 히스토리에도 남지 않는다
+  (비밀번호가 들어 있으므로).
+- 이미 데이터가 있으면 비우고 다시 넣을지 물어본다. 사전이 바뀌어 재분류한 경우가 이에 해당.
+- 62만 행에 1~2분. 끝나면 행수와 검색 건수를 찍어주는데,
+  `대시보드_재생성` 로그의 숫자와 같아야 한다.
 
 ## 4. 계정 만들기
 
